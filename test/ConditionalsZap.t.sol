@@ -15,12 +15,16 @@ contract MockPoolManager {
     address public usdg;
     bool public unlocked;
     bool public halfFill;
+    uint256 public partialOnSwap;
+    uint256 public swapsThisUnlock;
     /// @dev Output per 1e18 of input, per pool (keyed by currency1).
     mapping(address => uint256) public rate;
     mapping(address => int256) public delta;
     address public synced;
     uint256 public syncedBalance;
     IPoolManager.PoolKey[] public keys;
+    IPoolManager.SwapParams[] public parameters;
+    bytes32[] public hookDataHashes;
 
     constructor(MockIMD imd_, address usdg_) {
         imd = imd_;
@@ -37,6 +41,10 @@ contract MockPoolManager {
         halfFill = p;
     }
 
+    function setPartialOnSwap(uint256 number) external {
+        partialOnSwap = number;
+    }
+
     function keyCount() external view returns (uint256) {
         return keys.length;
     }
@@ -44,20 +52,24 @@ contract MockPoolManager {
     function unlock(bytes calldata data) external returns (bytes memory result) {
         require(!unlocked, "already unlocked");
         unlocked = true;
+        swapsThisUnlock = 0;
         result = IUnlockCallback(msg.sender).unlockCallback(data);
         require(delta[address(0)] == 0 && delta[address(imd)] == 0 && delta[usdg] == 0, "CurrencyNotSettled");
         unlocked = false;
     }
 
-    function swap(IPoolManager.PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata)
+    function swap(IPoolManager.PoolKey memory key, IPoolManager.SwapParams memory params, bytes calldata hookData)
         external
         returns (int256)
     {
         require(unlocked, "locked");
         require(params.amountSpecified < 0, "exact input only");
         keys.push(key);
+        parameters.push(params);
+        hookDataHashes.push(keccak256(hookData));
+        ++swapsThisUnlock;
         uint256 amountIn = uint256(-params.amountSpecified);
-        if (halfFill) amountIn /= 2;
+        if (halfFill || partialOnSwap == swapsThisUnlock) amountIn /= 2;
         uint256 out = amountIn * rate[key.currency1] / 1e18;
         int128 a0;
         int128 a1;
@@ -246,6 +258,154 @@ contract ConditionalsZapTest is Fixture {
         } catch {
             assertEq(alice.balance, value, "a refused zap returns the ETH");
         }
+        _assertHoldsNothing();
+    }
+
+    function _twoHopRate() internal {
+        pm.setRate(address(usdg), 0.0005 ether * 1e18 / 1e6);
+    }
+
+    function _zapState() internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                c.getMarket(id),
+                c.sharesOf(id, alice),
+                c.netIn(id, alice),
+                c.owed(creator),
+                c.owed(builder),
+                c.totalBurned(),
+                imd.balanceOf(DEAD),
+                imd.balanceOf(address(c)),
+                imd.balanceOf(address(zap)),
+                imd.totalSupply(),
+                imd.allowance(address(zap), address(c)),
+                usdg.balanceOf(alice),
+                usdg.balanceOf(address(zap)),
+                usdg.balanceOf(address(pm)),
+                usdg.allowance(alice, address(zap)),
+                alice.balance,
+                address(zap).balance,
+                address(pm).balance,
+                pm.delta(address(0)),
+                pm.delta(address(imd)),
+                pm.delta(address(usdg)),
+                pm.synced(),
+                pm.syncedBalance(),
+                pm.keyCount(),
+                pm.swapsThisUnlock(),
+                pm.unlocked()
+            )
+        );
+    }
+
+    function test_usdgSecondLegPartialFillRestoresFirstSwapAndPayment() public {
+        _twoHopRate();
+        pm.setPartialOnSwap(2);
+        vm.prank(alice);
+        usdg.approve(address(zap), 20e6);
+        bytes32 before_ = _zapState();
+        // The first hop really reaches ERC-20 settlement before the second hop refuses the fill.
+        vm.expectCall(address(usdg), abi.encodeCall(IERC20.transfer, (address(pm), 20e6)));
+        vm.prank(alice);
+        vm.expectRevert(ConditionalsZap.PartialFill.selector);
+        zap.stakeWithUsdg(id, 0, 0, 20e6, 0, 0);
+        assertEq(_zapState(), before_, "both pools, allowance and positions roll back");
+
+        pm.setPartialOnSwap(0);
+        vm.prank(alice);
+        (uint256 amount,) = zap.stakeWithUsdg(id, 0, 0, 20e6, 0, 0);
+        assertEq(amount, 6 ether);
+        assertEq(usdg.allowance(alice, address(zap)), 0);
+        _assertHoldsNothing();
+    }
+
+    function test_usdgBothSlippageBoundsAndInvalidChoiceRollBackTwoHops() public {
+        _twoHopRate();
+        vm.prank(alice);
+        usdg.approve(address(zap), 20e6);
+        bytes32 before_ = _zapState();
+        vm.prank(alice);
+        vm.expectRevert(ConditionalsZap.SlippageExceeded.selector);
+        zap.stakeWithUsdg(id, 0, 0, 20e6, 6 ether + 1, 0);
+        assertEq(_zapState(), before_);
+        (uint256 quote,) = c.quoteStake(id, 0, 0, 6 ether);
+        vm.prank(alice);
+        vm.expectRevert(ConditionalsV2.SlippageExceeded.selector);
+        zap.stakeWithUsdg(id, 0, 0, 20e6, 6 ether, quote + 1);
+        assertEq(_zapState(), before_);
+        vm.prank(alice);
+        vm.expectRevert(ConditionalsV2.InvalidChoice.selector);
+        zap.stakeWithUsdg(id, 2, 0, 20e6, 0, 0);
+        assertEq(_zapState(), before_);
+    }
+
+    function test_usdgSettlementFailureReturnsTheInputAndAllowance() public {
+        _twoHopRate();
+        usdg.setBlocked(address(pm), true);
+        vm.prank(alice);
+        usdg.approve(address(zap), 20e6);
+        bytes32 before_ = _zapState();
+        vm.prank(alice);
+        vm.expectRevert(bytes("blocked"));
+        zap.stakeWithUsdg(id, 0, 0, 20e6, 0, 0);
+        assertEq(_zapState(), before_);
+    }
+
+    function test_outputTokenRefusalRollsBackBothPaymentRoutes() public {
+        _twoHopRate();
+        imd.setBlocked(address(zap), true);
+        bytes32 before_ = _zapState();
+        vm.prank(alice);
+        vm.expectRevert(bytes("blocked"));
+        zap.stakeWithEth{value: 0.01 ether}(id, 0, 0, 0, 0);
+        assertEq(_zapState(), before_);
+        vm.prank(alice);
+        vm.expectRevert(bytes("blocked"));
+        zap.stakeWithUsdg(id, 0, 0, 20e6, 0, 0);
+        assertEq(_zapState(), before_);
+    }
+
+    /// @dev Six-decimal input units cross two opposite swap directions. All bounded cases must
+    /// succeed, so an always-reverting zap cannot pass this property.
+    /// forge-config: default.fuzz.runs = 1000
+    function testFuzz_usdgExactInputTwoHopAccounting(uint96 units, uint8 world, uint8 side) public {
+        _twoHopRate();
+        uint256 amount = bound(units, 1e6, 100e6);
+        world %= 2;
+        side %= 2;
+        uint256 ethOutput = amount * 5e8;
+        uint256 imdOutput = ethOutput * 600;
+        (uint256 expectedShares,) = c.quoteStake(id, world, side, imdOutput);
+        vm.startPrank(alice);
+        usdg.approve(address(zap), amount);
+        (uint256 staked, uint256 shares) = zap.stakeWithUsdg(id, world, side, amount, imdOutput, expectedShares);
+        vm.stopPrank();
+        assertEq(staked, imdOutput);
+        assertEq(shares, expectedShares);
+        uint256[4] memory held = c.sharesOf(id, alice);
+        assertEq(held[2 * world + side], imdOutput + shares);
+        assertEq(held[2 * world + (1 - side)], 0);
+        assertEq(held[2 * (1 - world)], imdOutput);
+        assertEq(held[2 * (1 - world) + 1], imdOutput);
+        assertEq(usdg.balanceOf(alice), 1_000e6 - amount);
+        assertEq(usdg.balanceOf(address(pm)), amount);
+        assertEq(usdg.allowance(alice, address(zap)), 0);
+        assertEq(address(pm).balance, 0, "intermediate ETH nets internally");
+        assertEq(pm.delta(address(0)), 0);
+        assertEq(pm.delta(address(imd)), 0);
+        assertEq(pm.delta(address(usdg)), 0);
+        assertFalse(pm.unlocked());
+        assertEq(pm.keyCount(), 2);
+        (bool direction, int256 specified, uint160 limit) = pm.parameters(0);
+        assertFalse(direction, "USDG -> ETH");
+        assertEq(specified, -int256(amount));
+        assertEq(limit, 1_461_446_703_485_210_103_287_273_052_203_988_822_378_723_970_341);
+        (direction, specified, limit) = pm.parameters(1);
+        assertTrue(direction, "ETH -> IMD");
+        assertEq(specified, -int256(ethOutput));
+        assertEq(limit, 4_295_128_740);
+        assertEq(pm.hookDataHashes(0), keccak256(""));
+        assertEq(pm.hookDataHashes(1), keccak256(""));
         _assertHoldsNothing();
     }
 }
