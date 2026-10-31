@@ -3,6 +3,8 @@
 Last updated: 2026-10-31. Separate entry from GAMMA (`~/projects/imd`). GitHub and Vercel: **UgwujaGeorge** (not
 haileymarshall). Push with `gh auth token --user UgwujaGeorge`; do not switch the active gh account.
 
+Full status and recovery steps: `PROGRESS.md` (local, uncommitted).
+
 ## V2 launch in progress (2026-10-31)
 
 - Branch `v2`, commit `4b1f184`: `src/ConditionalsV2.sol` (LMSR, IMD only, seed required, no vault) and
