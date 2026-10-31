@@ -1,31 +1,133 @@
 # Handoff: Conditionals
 
-Last updated: 2026-10-31. Separate entry from GAMMA (`~/projects/imd`). GitHub and Vercel: **UgwujaGeorge** (not
+Last updated: 2026-10-31, 11:50 WAT. Separate entry from GAMMA (`~/projects/imd`). GitHub and Vercel: **UgwujaGeorge** (not
 haileymarshall). Push with `gh auth token --user UgwujaGeorge`; do not switch the active gh account.
 
-Full status and recovery steps: `PROGRESS.md` (local, uncommitted).
+## LATEST HANDOFF SESSION: 2026-10-31 (read this first)
 
-## V2 launch in progress (2026-10-31)
+**The user's decision: relaunch v2 through IMD with another 0.5 IMD when they get back.** Nothing is running and nothing has
+been paid since the park. Start with step 1 below as soon as they say to continue. `PROGRESS.md` has the plain-language
+history, and everything further down this file is older history: where it conflicts, this section wins.
 
-- Branch `v2`, commit `4b1f184`: `src/ConditionalsV2.sol` (LMSR, IMD only, seed required, no vault) and
-  `src/ConditionalsZap.sol` (ETH and USDG into IMD through Uniswap v4). v1 moved to `legacy/v1`, not built. 51 tests plus 5 fork tests pass.
-- **Paid IMD launch**: tx `0x0ed9be336c67e29c184f4a1adae5cadb7b331af07bf1ddc04053e09357adf98e`. Follow it with
-  `GET https://api.imd.fun/intake/4663/<tx>`. Wallet after payment: 15.5 IMD, ~0.0015 ETH.
-- USDG is `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` (Global Dollar). The direct IMD/USDG pool is empty (~$43), so
-  USDG routes USDG to ETH (fee 500, spacing 10) then ETH to IMD (fee 10000, spacing 100). PoolManager
-  `0x8366a39CC670B4001A1121B8F6A443A643e40951`.
-- After it deploys: merge the delivered commit, point the frontend at the addresses, remove the "Coming with v2" chip
-  once a live ETH and USDG stake works, then create the 4 markets with b = 1.44 IMD (seed ~2 IMD, plus 1 IMD oracle each):
-  1. If the Fed raises rates at its Dec 9 decision, will BTC close above $80,000 on Dec 31? (close before Dec 9)
-  2. If the US carries out new strikes on Iran between market creation and Dec 31, will the ICE Brent front-month settle above
-     $115 on Dec 31? ($115 from the $113.43 January settle on Oct 30; recheck on creation day. "New", because an Iran war is already under way.)
-  3. If the Senate holds another Clarity Act vote by Dec 31, will ETH close above $2,500 on Dec 31?
-  4. If BTC closes above $85,000 on Dec 31, will IMD close above $5 on Dec 31?
-- Promo film done at `C:\Users\Administrator\Videos\Conditionals\conditionals-film.mp4` (60 s, 1080p, 30 fps, original music from
-  `compose.py`). Sources in `~/projects/conditionals-video`: `film.html`, `film.cjs`, `caps2/`. It shows sample markets from demo mode with a
-  note saying so; recapture `caps2/` once the 4 real markets are live, then rerun `film.cjs`. Promises ETH and USDG bets: publish only after v2 works.
-- IMD job: `81264d12-a201-4065-b9ff-c8df33483dfe`. Frontend for v2 is committed on branch `v2` (`a9678ee`), not pushed to main;
-  regenerate the ABI with `pnpm abi` after merging the delivered contracts and set `DEPLOYED` and `DEPLOYED_ZAP` in `frontend/src/lib/config.ts`.
+### State
+
+| What | Status |
+|---|---|
+| Live site | https://conditionals.xyz, still v1, from `main` at `825ee9f` |
+| Work branch | `v2`, pushed, git tag `handoff-latest` |
+| V1 contract | `0xc8cc656b71dd77ae1e29b0bc7890edd110e73255`, 1 market, holds only the 1 IMD oracle deposit, so no trader funds |
+| V2 contracts | **Not deployed.** IMD launch 2765 parked; the fix is ready and unaudited |
+| Wallet | `0x63BCf2d1483c7628d7D53704ff9c8199Dc28d907`: 15.5 IMD, 0.0015 ETH, Intake allowance 0. Key in `~/.conditionals/deployer.env` |
+| Budget | 0.5 IMD launch + 4 markets x (1 IMD oracle + ~2 IMD seed) = 12.5 IMD, leaving 3 IMD |
+
+**Do not merge `v2` into `main` before v2 is deployed.** `DEPLOYED` and `DEPLOYED_ZAP` in `frontend/src/lib/config.ts` are unset on
+`v2`, so the live site would fall back to demo mode.
+
+### What happened to launch 2765
+
+Paid 06:45 WAT, delivered 10:52, parked 10:54: about 4 hours. Job `81264d12-a201-4065-b9ff-c8df33483dfe`, launch
+`f5047328-73e5-40b2-8e96-1610c79e7549`, delivered commit `a03596c` (merged into `v2`), manifest archived at
+`launch/2765-manifest.json`. Payment tx `0x0ed9be336c67e29c184f4a1adae5cadb7b331af07bf1ddc04053e09357adf98e`. The 0.5 IMD is lost.
+
+| Severity | Finding | Status |
+|---|---|---|
+| Critical | `buy()` cast `int256(shares)` wrapped, crediting free shares; about 0.001 IMD could drain a market. My bug, my tests missed it | Fixed by the swarm |
+| High | Void dilution: cooperating accounts wash trade, then a void pays them from the seed and honest stakers | Fixed by the swarm (per-outcome cost basis, value and cost blend) |
+| Medium | A short void could refund above cost | Fixed by the swarm (capped at cost) |
+| Medium | The capped refunds leave part of the pool stuck forever. **This parked it** | Fixed by me, `sweepVoid`, not yet audited |
+
+What this taught us about IMD:
+- The judge sent the work back 3 times, then the launch parked with a medium open. Assume 3 rounds of fixes per launch.
+- **Findings are public while it runs:** `GET https://api.imd.fun/jobs/<job>/submissions`, judge entries have `.findings` and `.summary`.
+- After the job completes, `GET /launches/<id>` shows `assembling`, then `parked` with `parkedReason`, or live.
+
+### Contract state (branch `v2`)
+
+- `src/ConditionalsV2.sol`, 24,269 bytes at optimizer_runs 1, **307 bytes spare**. `src/ConditionalsZap.sol`, 3,646 bytes. V1 is in `legacy/v1`, not built.
+- `sweepVoid`: after a short void, from 365 days after the void, pays the creator whatever is left of the refund pool. Refunds unclaimed at
+  the sweep lapse; late claims work until somebody sweeps. A void that was not short has no leftover and never lapses. `voidAfter` becomes the time of the void.
+- Removed to fit: the `conditionals` view, the `pendingOracleConfig` getter, `totalCreatorFees`, and public getters for 7 constants. The site uses none of them.
+- Fee: 2% per maker trade: half to the market's creator, 67/200 burned, 33/200 to the fee recipient. Claims are free.
+- Tests: 129 pass at 1,024 fuzz runs. Fork tests need `ROBINHOOD_RPC_URL`, and the public RPC has no archive for the pinned `FORK_BLOCK`, so for a local run set
+  `FORK_BLOCK` to a recent block and put it back. 10 of 11 then pass. `test_fork_launchArgumentsAndDependencies` fails only in that setup, because forge reports the
+  L2 number as `block.number`. On the real chain a contract sees the Ethereum block number: checked 2026-10-31, 26,312,176 against Ethereum's head.
+- `launch/launch.template.json` tells the swarm what launch 2765 settled and which designs are deliberate.
+
+### Step 1: relaunch (costs 0.5 IMD)
+
+```bash
+cd ~/projects/conditionals && git checkout v2
+W=0x63BCf2d1483c7628d7D53704ff9c8199Dc28d907
+launch/pay.sh build $W $W   # pins HEAD, so commit first; launch.json is gitignored
+launch/pay.sh approve       # lets the Intake pull 0.5 IMD
+launch/pay.sh launch        # runs IMD's free check and pays only with no blockers
+```
+
+Then follow it:
+- `curl -s https://api.imd.fun/intake/4663/<tx> | jq '.entries[0].admission.result.jobId'` gives the job.
+- Put the new job id in `~/projects/conditionals-video/watch.sh` and run it in the background.
+- When the job completes, read `.launch.id` from `/jobs/<job>`, put it in `watch-launch.sh` and run that.
+- Read `/jobs/<job>/submissions` during the run, and tell the user about findings as they appear.
+
+### Step 2: when it goes live
+
+1. **Review every contract change the swarm made** with `git diff`, and rerun all tests. The critical bug shows my suite alone isn't enough.
+2. Merge the delivered commit into `v2`. Move the root `launch.json` to `launch/<number>-manifest.json`, because a root one can block another launch.
+3. `forge build`, then `cd frontend && pnpm abi`. Set `DEPLOYED` and `DEPLOYED_ZAP` in `frontend/src/lib/config.ts`.
+4. Test real small bets from the wallet: one ETH through the zap and one USDG (buy a little USDG with ETH first), then sell one. Check `exit`.
+5. Show the user the exact market wording, then create the 4 markets (`b` = 1.44 IMD, `maxBudget` = 1 IMD, seed ~2 IMD from `seedFor`). Recheck targets that day, and run IMD's pre-check on each question.
+6. Merge `v2` into `main`, push with the George token (Vercel deploys), and check https://conditionals.xyz.
+
+### The 4 markets (user approved; recheck targets on creation day)
+
+| # | If… | Will… | Trading must close |
+|---|---|---|---|
+| 1 | The Fed raises rates at its Dec 9 2026 decision | BTC closes above $80,000 on Coinbase on Dec 31 | Before Dec 9 |
+| 2 | The US carries out **new** strikes on Iran between market creation and Dec 31 | ICE Brent front-month settles above $115 on Dec 31 | Before Dec 31 |
+| 3 | The Senate holds another Clarity Act vote by Dec 31 | ETH closes above $2,500 on Coinbase on Dec 31 | Before Dec 31 |
+| 4 | BTC closes above $85,000 on Coinbase on Dec 31 | IMD trades above $5 on Dec 31 | Before Dec 31 |
+
+- Resolve time: after Dec 31 UTC. Both statements are judged as of it. Informed traders can take the seed, so close trading before answers go public.
+- Market 2 says "new" because reports already describe an Iran war. Brent's January contract settled at $113.43 on Oct 30, and the expiring December at $117.64.
+- Market 1: one source put a December hike above 80%. The market still works.
+- Text rules: printable ASCII, no double quotes or backslashes, condition and outcome up to 280 characters, rules up to 500 and containing a space.
+
+### Addresses
+
+IMD `0x5f7bb59365ce557c26dbcaa4ee9d39a4b95b7127`, USDG (genuine Global Dollar) `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168`, Uniswap v4 PoolManager
+`0x8366a39CC670B4001A1121B8F6A443A643e40951`, Intake `0xa43e6f75ee006411f79ac1c84120606c2330de82`, oracle signer `0x5598aa9146215bc13eb26f2c692ad1461fd32982`.
+USDG routes USDG to ETH (fee 500, spacing 10), then ETH to IMD (fee 10000, spacing 100). The direct IMD/USDG pool is empty.
+
+### Videos
+
+In `C:\Users\Administrator\Videos\Conditionals\`, sources in `~/projects/conditionals-video`. **The user hasn't picked one. Don't post either before ETH and USDG bets work.**
+
+| File | What | Rebuild |
+|---|---|---|
+| `conditionals-film.mp4` | "One line, two worlds": 60 s, 30 fps, calm, original music | `film.html`, `film.cjs`, `caps2/`, `compose.py` |
+| `conditionals-film-2.mp4` | "Reality Splits": 55 s, 60 fps, three.js, 128 BPM track with drops | `film2.js`, `film2.cjs`, `render2.sh`, `parts/`, `compose2.py`, `tools/` |
+
+- Both show sample markets with a note saying so. Recapture with the real 4 markets once live: `tools/parts.cjs` and `tools/e2e.cjs`, against a dev server on port 3987.
+- `film2` needs `python3 -m http.server 8765 --bind 127.0.0.1 --directory ~/projects/conditionals-video`, internet for fonts, and about 40 minutes per pass. It skips frames that exist, so **delete the old frames folder named in `render2.sh` before re-rendering**.
+- The song "Do I Clench My Fists" is banned: the user rejected it. Only the old sketch file still has it. Claude can't hear audio, so ask the user to judge it.
+
+### What the user wants
+
+- Site: viewed at about 1253x550 (Windows 150% scaling), so test there. No contract addresses on the site. The site shouldn't explain routing or how it uses IMD; the top menu section is titled "IMD", saying bets are made in IMD and can be placed with ETH or USDG.
+- Commits: conventional format, no co-author, no mention of AI. The user wants plain, brief updates.
+- Spending: confirm before each paid launch. The user wants things verified before paying.
+
+### Still to decide with the user
+
+1. Which film to use.
+2. Whether the v2 bet box keeps "swapped into IMD in the same transaction". Claude kept it so people know what they hold; easy to remove.
+3. Whether the creator getting a short void's leftover after a year is acceptable. It's the judge's suggested fix and is already in the contract.
+
+---
+
+# Older history
+
+Kept for reference. Where it conflicts with the latest session above, the latest session wins.
 
 ## Session 2026-10-31: domain live, frontend adjustments
 
