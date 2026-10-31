@@ -1,0 +1,25 @@
+{
+  "kind": "evm_contracts",
+  "contracts": [
+    {
+      "contract": "ConditionalsV2",
+      "constructorArgs": [
+        "$owner",
+        "0x5f7bb59365ce557c26dbcaa4ee9d39a4b95b7127",
+        "0xa43e6f75ee006411f79ac1c84120606c2330de82",
+        "0x5598aa9146215bc13eb26f2c692ad1461fd32982",
+        "0x63bcf2d1483c7628d7d53704ff9c8199dc28d907"
+      ]
+    },
+    {
+      "contract": "ConditionalsZap",
+      "constructorArgs": [
+        "$contract:ConditionalsV2",
+        "0x8366a39cc670b4001a1121b8f6a443a643e40951",
+        "0x5f7bb59365ce557c26dbcaa4ee9d39a4b95b7127",
+        "0x5fc5360d0400a0fd4f2af552add042d716f1d168"
+      ]
+    }
+  ],
+  "notes": "Deploy src/ConditionalsV2.sol:ConditionalsV2 first, then src/ConditionalsZap.sol:ConditionalsZap on Robinhood Chain. ConditionalsV2 is an IMD conditional prediction market settled by the IdentityMD oracle, owned by $owner, with the specified Intake, oracle signer and fee recipient. The ownerless ConditionalsZap swaps ETH or USDG through the specified Uniswap v4 PoolManager and stakes IMD for the caller in the newly deployed ConditionalsV2. Both contracts are configured by nonpayable constructors without external calls."
+}
