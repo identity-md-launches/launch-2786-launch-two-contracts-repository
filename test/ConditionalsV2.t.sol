@@ -6,6 +6,13 @@ import {ConditionalsV2} from "../src/ConditionalsV2.sol";
 import {IOracleAttestation} from "../src/interfaces/IOracleAttestation.sol";
 
 contract ConditionalsV2Test is Fixture {
+    /// @dev The chance of YES in each world, as the site derives it from `prices`.
+    function _chances(uint256 id) internal view returns (uint256 yesA, uint256 yesB) {
+        uint256[4] memory p = c.prices(id);
+        yesA = p[0] * 1e18 / (p[0] + p[1]);
+        yesB = p[2] * 1e18 / (p[2] + p[3]);
+    }
+
     uint256 internal constant SEED_20 = 27_725_887_222_397_812_376; // 20 ln 4, the design's worked example
 
     function _invariantsHold(uint256 id) internal view {
@@ -69,7 +76,7 @@ contract ConditionalsV2Test is Fixture {
         // Fees leave the maker a little short of the design's fee-free quotes, so world B's mass rises a little.
         assertApproxEqRel(p[2], 0.25 ether, 0.01e18);
         assertApproxEqRel(p[0] + p[1], 0.5 ether, 0.01e18, "P(C) barely moves");
-        (uint256 yesA, uint256 yesB) = c.conditionals(id);
+        (uint256 yesA, uint256 yesB) = _chances(id);
         assertGt(yesA, 0.66 ether);
         assertApproxEqAbs(yesB, 0.5 ether, 4);
         _invariantsHold(id);
@@ -582,7 +589,7 @@ contract ConditionalsV2Test is Fixture {
 
         uint256[4] memory p = c.prices(id);
         assertGt(p[0] + p[1], 0);
-        (uint256 yesIfCondition, uint256 yesIfNot) = c.conditionals(id);
+        (uint256 yesIfCondition, uint256 yesIfNot) = _chances(id);
         assertLe(yesIfCondition, 1 ether);
         assertLe(yesIfNot, 1 ether);
         (uint256 shares,) = c.quoteStake(id, 0, 0, 1 ether);
@@ -618,7 +625,7 @@ contract ConditionalsV2Test is Fixture {
         for (uint256 i; i < 4; ++i) {
             assertEq(held[i], 0);
         }
-        c.conditionals(id);
+        c.prices(id);
         _invariantsHold(id);
     }
 
@@ -986,5 +993,99 @@ contract ConditionalsV2Test is Fixture {
         }
         assertLe(total, m.refundPool);
         assertGe(imd.balanceOf(address(c)), c.owed(creator) + c.owed(builder));
+    }
+
+    // ---- the short void's leftover -----------------------------------------------------------------------------------
+
+    /// @dev Launch 2765's final finding: a short void's capped refunds add up to less than the pool.
+    function _shortVoid() internal returns (uint256 id, uint256 voidedAt) {
+        id = _create();
+        imd.mint(alice, 100_000 ether);
+        imd.mint(carol, 100_000 ether);
+        imd.mint(dave, 100_000 ether);
+        vm.prank(dave);
+        imd.approve(address(c), type(uint256).max);
+        vm.prank(dave);
+        c.stakeConditional(id, 1, 0, 100e18, 0);
+        vm.prank(alice);
+        c.buy(id, 3, 199.999e18, type(uint256).max);
+        vm.startPrank(carol);
+        c.buy(id, 0, 199.999e18, type(uint256).max);
+        c.buy(id, 2, 199.999e18, type(uint256).max);
+        c.buy(id, 0, 199.999e18, type(uint256).max);
+        c.sell(id, 0, 192.5e18, 0);
+        vm.stopPrank();
+        voidedAt = resolveTime + 30 days + 1;
+        vm.warp(voidedAt);
+        c.voidMarket(id);
+        ConditionalsV2.Market memory m = c.getMarket(id);
+        assertLt(m.refundPool, m.refundBase, "the void is short");
+        assertEq(m.voidAfter, voidedAt, "voidAfter now records the void");
+    }
+
+    function test_sweep_paysTheCreatorWhatTheCappedRefundsLeave() public {
+        (uint256 id, uint256 voidedAt) = _shortVoid();
+        uint256 pool = c.getMarket(id).refundPool;
+        uint256 paid;
+        address[3] memory traders = [alice, carol, dave];
+        for (uint256 i; i < 3; ++i) {
+            uint256 net = uint256(c.netIn(id, traders[i]));
+            uint256 got = _claim(traders[i], id);
+            assertLe(got, net, "a refund never exceeds the cost");
+            paid += got;
+        }
+        assertEq(c.getMarket(id).refundPaid, paid);
+        assertGt(pool - paid, 1 ether, "the capped refunds leave part of the pool");
+
+        vm.warp(voidedAt + 365 days - 1);
+        vm.expectRevert(ConditionalsV2.TooEarly.selector);
+        c.sweepVoid(id);
+
+        uint256 before = imd.balanceOf(creator);
+        vm.warp(voidedAt + 365 days);
+        c.sweepVoid(id);
+        assertEq(imd.balanceOf(creator) - before, pool - paid, "nothing is stranded");
+        assertEq(imd.balanceOf(address(c)), c.owed(creator) + c.owed(builder) + c.owed(DEAD));
+
+        vm.expectRevert(ConditionalsV2.NotVoidable.selector);
+        c.sweepVoid(id);
+    }
+
+    function test_sweep_unclaimedRefundsLapse() public {
+        (uint256 id, uint256 voidedAt) = _shortVoid();
+        uint256 alicePays = c.claimable(id, alice);
+        assertGt(alicePays, 0);
+        _claim(carol, id);
+        vm.warp(voidedAt + 366 days);
+        // Late is fine until somebody sweeps.
+        assertEq(_claim(alice, id), alicePays);
+        c.sweepVoid(id);
+        assertEq(c.claimable(id, dave), 0);
+        uint256 before = imd.balanceOf(dave);
+        assertEq(_claim(dave, id), 0);
+        assertEq(imd.balanceOf(dave), before);
+    }
+
+    function test_sweep_onlyAfterAShortVoid() public {
+        uint256 id = _create();
+        _stake(alice, id, 0, 0, 10 ether);
+        vm.expectRevert(ConditionalsV2.NotVoidable.selector);
+        c.sweepVoid(id);
+        vm.warp(resolveTime + 30 days + 1);
+        c.voidMarket(id);
+        vm.warp(block.timestamp + 400 days);
+        vm.expectRevert(ConditionalsV2.NotVoidable.selector);
+        c.sweepVoid(id);
+        // A void that was not short never lapses.
+        assertEq(_claim(alice, id), uint256(c.netIn(id, alice)));
+    }
+
+    function test_sweep_blockedCreatorIsOwed() public {
+        (uint256 id, uint256 voidedAt) = _shortVoid();
+        vm.warp(voidedAt + 365 days);
+        imd.setBlocked(creator, true);
+        uint256 owedBefore = c.owed(creator);
+        c.sweepVoid(id);
+        assertGt(c.owed(creator), owedBefore, "credited, not lost");
     }
 }

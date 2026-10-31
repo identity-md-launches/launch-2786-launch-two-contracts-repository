@@ -133,7 +133,7 @@ contract ConditionalsV2InvariantTest is Test {
             if (m.q[i] < min) min = m.q[i];
         }
         assertLe(max - min, 20 * int256(m.b));
-        c.conditionals(id);
+        c.prices(id);
     }
 
     /// @dev Every winner can be paid in full, whichever outcome happens.

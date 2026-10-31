@@ -271,6 +271,11 @@ Redistributing it would need the sum of the clipped values over every account, w
 without a list of accounts, and the runtime has 21 bytes left. The creator is still paid last (`balance - pool`,
 zero when short), so this is IMD no account had a claim to under the brief's rule rather than a loss to anyone.
 
+After launch 2765 parked on that leftover (`5a89dee7`), `sweepVoid` pays it to the creator from a year after the void,
+and refunds still unclaimed at the sweep lapse. Late claims work until somebody sweeps. A void that was not short has
+no leftover and its refunds never lapse. The `conditionals` view went to make room; the site derives the same numbers
+from `getMarket`.
+
 - `src/ConditionalsV2.sol`: `_payout` (one line and its comment).
 - `test/ConditionalsV2.t.sol`: `test_review_shortVoidNeverPaysAboveCost` (the proof's scenario: every refund at
   most the cost, Carol and Dave exactly at cost, Alice below it, the total within the pool), and

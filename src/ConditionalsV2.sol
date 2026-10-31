@@ -37,6 +37,8 @@ import {IOracleAttestation} from "./interfaces/IOracleAttestation.sol";
 /// each account gets back what it paid for the shares it still holds, excluding fees and pro rata if short, and the
 /// creator is paid last. Gains and losses already realised against the maker are not refunded: a loss one account
 /// realised is IMD another account took out, so refunding it would come out of the seed and the other refunds.
+/// What a short void's capped refunds leave in its pool goes to the creator from a year after the void, when any
+/// refund not yet claimed lapses with it.
 /// A void waits while an ask younger than RETRY_DELAY is still live, so an answer on its way cannot be voided away.
 ///
 /// The owner can only rotate the oracle configuration for future markets (behind a 3 day delay) and change the fee
@@ -51,20 +53,20 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
     // ---------------------------------------------------------------------------------------------------------------
 
     /// @notice Where burned IMD goes. IMD reverts on transfers to the zero address.
-    address public constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
+    address internal constant BURN_ADDRESS = 0x000000000000000000000000000000000000dEaD;
 
     uint256 internal constant BPS = 10_000;
     /// @notice Fee on every trade with the maker.
-    uint256 public constant FEE_BPS = 200;
+    uint256 internal constant FEE_BPS = 200;
     /// @notice The fee's split, out of FEE_BPS: creator, burned; the rest goes to the fee recipient.
     uint256 internal constant LP_SHARE_BPS = 100;
     uint256 internal constant BURN_SHARE_BPS = 67;
 
     /// @notice Smallest trade, 0.001 IMD.
-    uint256 public constant MIN_TRADE = 1e15;
+    uint256 internal constant MIN_TRADE = 1e15;
     /// @notice Bounds for the liquidity parameter. A market's seed, and the creator's maximum loss, is b ln 4.
-    uint256 public constant MIN_B = 0.5 ether;
-    uint256 public constant MAX_B = 100 ether;
+    uint256 internal constant MIN_B = 0.5 ether;
+    uint256 internal constant MAX_B = 100 ether;
     /// @notice The widest gap between two outcomes' maker positions, in units of b. It bounds every price away from
     ///         0 (about 2e-9) so the fixed point stays exact, and a saturated market refuses trades instead of misquoting.
     int256 internal constant MAX_SPREAD_B = 20;
@@ -78,9 +80,11 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
     /// @notice Furthest a market's resolveTime can be from its creation.
     uint256 internal constant MAX_HORIZON = 730 days;
     /// @notice How long after resolveTime a market waits for answers before anyone can void it.
-    uint256 public constant RESOLUTION_PERIOD = 30 days;
+    uint256 internal constant RESOLUTION_PERIOD = 30 days;
+    /// @notice How long after a short void its unclaimed refund pool can be swept to the creator.
+    uint256 internal constant SWEEP_DELAY = 365 days;
     /// @notice How long an unanswered question waits before it can be asked again.
-    uint256 public constant RETRY_DELAY = 1 days;
+    uint256 internal constant RETRY_DELAY = 1 days;
     /// @notice Delay before a proposed oracle configuration can be activated.
     uint256 internal constant CONFIG_DELAY = 3 days;
     /// @notice How long after its delay a proposed configuration stays activatable. A proposal that is not
@@ -171,8 +175,10 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
         uint256 sets;
         /// @dev Sum of every account's `netIn` (the cost of the shares it holds): what a void has to refund.
         uint256 refundBase;
-        /// @dev Set on void: how much of `refundBase` the market can pay.
+        /// @dev Set on void: how much of `refundBase` the market can pay. Zero once swept.
         uint256 refundPool;
+        /// @dev How much of `refundPool` has been claimed.
+        uint256 refundPaid;
         string condition;
         string outcome;
         string rules;
@@ -194,7 +200,7 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
     /// @notice The configuration new markets are created with.
     OracleConfig public oracleConfig;
     /// @notice A proposed configuration and when it can be activated (zero: none).
-    OracleConfig public pendingOracleConfig;
+    OracleConfig internal pendingOracleConfig;
     uint256 public pendingOracleConfigAt;
 
     /// @notice Receives the builder share of the fee.
@@ -221,7 +227,6 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
     /// @notice Totals, for display.
     uint256 public totalBurned;
     uint256 public totalBuilderFees;
-    uint256 public totalCreatorFees;
     uint256 public totalOracleSpend;
 
     // ---------------------------------------------------------------------------------------------------------------
@@ -249,6 +254,7 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
     event AskFailed(uint256 indexed marketId, uint8 indexed question, bytes32 requestId, uint8 status, bytes32 reason);
     event Settled(uint256 indexed marketId, uint8 winner, uint256 makerResidual);
     event Voided(uint256 indexed marketId, uint256 refundPool, uint256 refundBase, uint256 toCreator);
+    event VoidSwept(uint256 indexed marketId, uint256 amount);
     event BudgetReturned(uint256 indexed marketId, address indexed creator, uint256 amount);
     event Claimed(uint256 indexed marketId, address indexed trader, uint256 amount);
     event PaymentDeferred(address indexed to, uint256 amount);
@@ -589,6 +595,8 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
         uint256 pool = FPM.min(balance, m.refundBase);
         uint256 toCreator = balance - pool;
         m.refundPool = pool;
+        // From here `voidAfter` is when the market was voided: nothing reads it as a deadline any more.
+        m.voidAfter = uint64(block.timestamp);
         emit Voided(marketId, pool, m.refundBase, toCreator);
         _push(m.creator, toCreator);
         _returnBudget(marketId, m);
@@ -606,8 +614,23 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
         amount = _payout(marketId, m, msg.sender);
         if (amount == 0) return 0;
         claimed[marketId][msg.sender] = true;
+        if (m.status == Status.Voided) m.refundPaid += amount;
         imd.safeTransfer(msg.sender, amount);
         emit Claimed(marketId, msg.sender, amount);
+    }
+
+    /// @notice Pays the creator what is left of a short void's refund pool, from SWEEP_DELAY after the void. The capped
+    ///         refunds can add up to less than the pool, and without a list of accounts the difference cannot be
+    ///         shared out. Refunds still unclaimed at the sweep lapse: `claim` pays nothing afterwards. A void that
+    ///         was not short has nothing left over, and every refund stays claimable.
+    function sweepVoid(uint256 marketId) external nonReentrant {
+        Market storage m = _market(marketId);
+        uint256 pool = m.refundPool;
+        if (m.status != Status.Voided || pool == m.refundBase || pool <= m.refundPaid) revert NotVoidable();
+        if (block.timestamp < uint256(m.voidAfter) + SWEEP_DELAY) revert TooEarly();
+        m.refundPool = 0;
+        emit VoidSwept(marketId, pool - m.refundPaid);
+        _push(m.creator, pool - m.refundPaid);
     }
 
     /// @notice Pays the caller what a settlement or void could not push to them (see `owed`).
@@ -649,14 +672,6 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
     function prices(uint256 marketId) external view returns (uint256[4] memory) {
         Market storage m = _market(marketId);
         return _prices(m.q, m.b);
-    }
-
-    /// @notice The market's conditional probabilities of the outcome in each world, in WAD.
-    function conditionals(uint256 marketId) external view returns (uint256 yesIfCondition, uint256 yesIfNot) {
-        Market storage m = _market(marketId);
-        uint256[4] memory p = _prices(m.q, m.b);
-        yesIfCondition = FPM.divWad(p[0], p[0] + p[1]);
-        yesIfNot = FPM.divWad(p[2], p[2] + p[3]);
     }
 
     /// @notice What `stakeConditional` would give for `amount` now.
@@ -986,7 +1001,6 @@ contract ConditionalsV2 is Ownable2Step, ReentrancyGuard, EIP712, IOracleAttesta
         uint256 toBuilder = fee - toCreator - burned;
         owed[m.creator] += toCreator;
         owed[feeRecipient] += toBuilder;
-        totalCreatorFees += toCreator;
         totalBuilderFees += toBuilder;
         totalBurned += burned;
         _push(BURN_ADDRESS, burned);
