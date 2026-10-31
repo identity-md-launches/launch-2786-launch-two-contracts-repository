@@ -4,6 +4,7 @@ pragma solidity 0.8.26;
 import {Fixture} from "./utils/Fixture.sol";
 import {ConditionalsV2} from "../src/ConditionalsV2.sol";
 import {IOracleAttestation} from "../src/interfaces/IOracleAttestation.sol";
+import {LmsrReference} from "./utils/LmsrReference.sol";
 
 contract ConditionalsV2Test is Fixture {
     /// @dev The chance of YES in each world, as the site derives it from `prices`.
@@ -17,6 +18,7 @@ contract ConditionalsV2Test is Fixture {
 
     function _invariantsHold(uint256 id) internal view {
         ConditionalsV2.Market memory m = c.getMarket(id);
+        assertGe(int256(m.makerBalance), LmsrReference.cost(m.q, m.b), "maker covers full LMSR cost");
         for (uint256 i; i < 4; ++i) {
             assertGe(int256(m.makerBalance), m.q[i], "maker covers every outcome");
         }

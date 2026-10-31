@@ -3,6 +3,7 @@ pragma solidity 0.8.26;
 
 import {Test, Vm} from "forge-std/Test.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {IERC20Metadata} from "@openzeppelin/contracts/token/ERC20/extensions/IERC20Metadata.sol";
 import {ConditionalsV2} from "../src/ConditionalsV2.sol";
 import {ConditionalsZap} from "../src/ConditionalsZap.sol";
 import {IIntake, IIntakePrice} from "../src/interfaces/IIntake.sol";
@@ -15,7 +16,15 @@ contract ForkLauncher {
     ConditionalsV2 public conditionals;
     ConditionalsZap public zap;
 
-    constructor(address owner, IERC20 imd, IIntake intake, address signer, address feeRecipient, IPoolManager pm, IERC20 usdg) {
+    constructor(
+        address owner,
+        IERC20 imd,
+        IIntake intake,
+        address signer,
+        address feeRecipient,
+        IPoolManager pm,
+        IERC20 usdg
+    ) {
         conditionals = new ConditionalsV2(owner, imd, intake, signer, feeRecipient);
         zap = new ConditionalsZap(conditionals, pm, imd, usdg);
     }
@@ -24,7 +33,7 @@ contract ForkLauncher {
 /// @dev Runs against Robinhood Chain at a pinned block when ROBINHOOD_RPC_URL is set: the real Intake takes the asks
 ///      and the real Uniswap v4 pools fill the zap. Skipped when the variable is empty, so the suite needs no RPC.
 contract ConditionalsV2ForkTest is Test {
-    uint256 constant FORK_BLOCK = 102_349_062;
+    uint256 constant FORK_BLOCK = 102_702_745;
 
     IERC20 constant IMD = IERC20(0x5F7Bb59365ce557C26dbcAa4EE9d39A4b95B7127);
     IERC20 constant USDG = IERC20(0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168);
@@ -68,6 +77,7 @@ contract ConditionalsV2ForkTest is Test {
     }
 
     function test_fork_launchArgumentsAndDependencies() public view {
+        assertEq(block.chainid, 4663, "Robinhood Chain");
         // On Robinhood Chain block.number is the Ethereum block number, which the question window is pinned to.
         assertGt(block.number, 26_000_000);
         assertLt(block.number, FORK_BLOCK);
@@ -89,6 +99,8 @@ contract ConditionalsV2ForkTest is Test {
         assertGt(address(INTAKE).code.length, 0);
         assertGt(address(MANAGER).code.length, 0);
         assertEq(IIntakePrice(address(INTAKE)).priceOf(ACTION, address(IMD)), 0.5 ether, "live oracle price");
+        assertEq(IERC20Metadata(address(IMD)).decimals(), 18);
+        assertEq(IERC20Metadata(address(USDG)).decimals(), 6);
     }
 
     function test_fork_realIntakeAcceptsTheAsks() public {
@@ -184,16 +196,20 @@ contract ConditionalsV2ForkTest is Test {
 
     function test_fork_zapHonoursMinImd() public {
         vm.deal(alice, 1 ether);
+        bytes32 before_ = _forkState();
         vm.prank(alice);
         vm.expectRevert(ConditionalsZap.SlippageExceeded.selector);
         zap.stakeWithEth{value: 0.0005 ether}(id, 0, 0, 1_000_000 ether, 0);
+        assertEq(_forkState(), before_, "failed swap restores payments and market");
     }
 
     function test_fork_zapHonoursMinShares() public {
         vm.deal(alice, 1 ether);
+        bytes32 before_ = _forkState();
         vm.prank(alice);
         vm.expectRevert(ConditionalsV2.SlippageExceeded.selector);
         zap.stakeWithEth{value: 0.0005 ether}(id, 0, 0, 0, 1_000_000 ether);
+        assertEq(_forkState(), before_, "failed stake restores the preceding swap too");
     }
 
     function test_fork_zapRefusesAClosedMarketAndKeepsNothing() public {
@@ -217,5 +233,88 @@ contract ConditionalsV2ForkTest is Test {
     function test_fork_callbackOnlyFromTheManager() public {
         vm.expectRevert(ConditionalsZap.NotPoolManager.selector);
         zap.unlockCallback(abi.encode(false, 1 ether));
+    }
+
+    function _forkState() internal view returns (bytes32) {
+        return keccak256(
+            abi.encode(
+                c.getMarket(id),
+                c.sharesOf(id, alice),
+                c.netIn(id, alice),
+                c.owed(creator),
+                c.owed(FEE_RECIPIENT),
+                c.totalBurned(),
+                c.totalBuilderFees(),
+                IMD.balanceOf(address(c)),
+                IMD.balanceOf(address(zap)),
+                IMD.balanceOf(address(MANAGER)),
+                IMD.allowance(address(zap), address(c)),
+                USDG.balanceOf(alice),
+                USDG.balanceOf(address(zap)),
+                USDG.balanceOf(address(MANAGER)),
+                USDG.allowance(alice, address(zap)),
+                alice.balance,
+                address(zap).balance,
+                address(MANAGER).balance
+            )
+        );
+    }
+
+    /// @dev Compare a clean execution to one preceded by rejected swaps. This checks the real pools'
+    /// price/liquidity state as well as token balances, without replacing either dependency with a mock.
+    function test_fork_usdgSlippageRollsBackBothPoolsAndFiniteAllowance() public {
+        deal(address(USDG), alice, 5e6);
+        vm.prank(alice);
+        USDG.approve(address(zap), 5e6);
+        uint256 snapshot = vm.snapshotState();
+        vm.prank(alice);
+        (uint256 expectedImd, uint256 expectedShares) = zap.stakeWithUsdg(id, 1, 0, 5e6, 0, 0);
+        assertGt(expectedImd, 0);
+        assertTrue(vm.revertToState(snapshot));
+        bytes32 before_ = _forkState();
+
+        vm.prank(alice);
+        vm.expectRevert(ConditionalsZap.SlippageExceeded.selector);
+        zap.stakeWithUsdg(id, 1, 0, 5e6, expectedImd + 1, 0);
+        assertEq(_forkState(), before_);
+        vm.prank(alice);
+        vm.expectRevert(ConditionalsV2.SlippageExceeded.selector);
+        zap.stakeWithUsdg(id, 1, 0, 5e6, expectedImd, expectedShares + 1);
+        assertEq(_forkState(), before_);
+
+        vm.prank(alice);
+        (uint256 staked, uint256 shares) = zap.stakeWithUsdg(id, 1, 0, 5e6, expectedImd, expectedShares);
+        assertEq(staked, expectedImd, "pool execution unchanged by failed transactions");
+        assertEq(shares, expectedShares);
+        assertEq(USDG.balanceOf(alice), 0);
+        assertEq(USDG.allowance(alice, address(zap)), 0);
+        assertEq(IMD.allowance(address(zap), address(c)), 0);
+        assertEq(IMD.balanceOf(address(zap)), 0);
+        assertEq(USDG.balanceOf(address(zap)), 0);
+        assertEq(address(zap).balance, 0);
+        assertEq(c.sharesOf(id, alice)[2], staked + shares);
+    }
+
+    function test_fork_liveImdBurnAndRoundTripAccounting() public {
+        address dead = 0x000000000000000000000000000000000000dEaD;
+        deal(address(IMD), alice, 10 ether);
+        uint256 burnedBefore = IMD.balanceOf(dead);
+        vm.startPrank(alice);
+        IMD.approve(address(c), type(uint256).max);
+        (uint256 cost, uint256 fee) = c.buy(id, 0, 1 ether, type(uint256).max);
+        assertEq(IMD.balanceOf(alice), 10 ether - cost - fee);
+        assertEq(IMD.balanceOf(dead) - burnedBefore, fee * 67 / 200);
+        assertEq(c.owed(creator), fee / 2);
+        assertEq(c.owed(FEE_RECIPIENT), fee - fee / 2 - fee * 67 / 200);
+        c.sell(id, 0, 1 ether, 0);
+        vm.stopPrank();
+        assertLt(IMD.balanceOf(alice), 10 ether);
+        assertEq(c.netIn(id, alice), 0, "realised loss is not a void claim");
+        assertEq(c.sharesOf(id, alice)[0], 0);
+        assertEq(IMD.balanceOf(dead) - burnedBefore, c.totalBurned());
+        ConditionalsV2.Market memory m = c.getMarket(id);
+        assertEq(
+            IMD.balanceOf(address(c)), m.makerBalance + m.sets + m.budget + c.owed(creator) + c.owed(FEE_RECIPIENT)
+        );
     }
 }
