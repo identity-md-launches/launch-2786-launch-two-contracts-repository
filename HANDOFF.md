@@ -18,7 +18,11 @@ haileymarshall). Push with `gh auth token --user UgwujaGeorge`; do not switch th
   2. If the US strikes Iran by Dec 31, will Brent close above $X on Dec 31?
   3. If the Senate holds another Clarity Act vote by Dec 31, will ETH close above $2,500 on Dec 31?
   4. If BTC closes above $85,000 on Dec 31, will IMD close above $5 on Dec 31?
-- Promo video: remake from scratch, no reference, original soundtrack. Sources in `~/projects/conditionals-video`.
+- Promo film done at `C:\Users\Administrator\Videos\Conditionals\conditionals-film.mp4` (60 s, 1080p, 30 fps, original music from
+  `compose.py`). Sources in `~/projects/conditionals-video`: `film.html`, `film.cjs`, `caps2/`. It shows sample markets from demo mode with a
+  note saying so; recapture `caps2/` once the 4 real markets are live, then rerun `film.cjs`. Promises ETH and USDG bets: publish only after v2 works.
+- IMD job: `81264d12-a201-4065-b9ff-c8df33483dfe`. Frontend for v2 is committed on branch `v2` (`a9678ee`), not pushed to main;
+  regenerate the ABI with `pnpm abi` after merging the delivered contracts and set `DEPLOYED` and `DEPLOYED_ZAP` in `frontend/src/lib/config.ts`.
 
 ## Session 2026-10-31: domain live, frontend adjustments
 
