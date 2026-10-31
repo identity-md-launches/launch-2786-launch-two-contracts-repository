@@ -118,8 +118,8 @@ const PAGES: Page[] = [
         </table>
         <p>The crowd says: 60% if it passes, 30% if it doesn&apos;t. The Act doubles ETH&apos;s chances.</p>
         <p>
-          The Act passes and ETH hits $5k. Carol and Dan get their money back. Alice wins the 100 IMD pot minus a 3%
-          fee: <strong>97 IMD</strong> for her 60. Bob loses his 40.
+          The Act passes and ETH hits $5k. Carol and Dan get their money back. Alice&apos;s winning shares pay 1 IMD each,
+          so she collects more than she put in. Bob loses his stake. Anyone can sell before the close instead of waiting.
         </p>
       </>
     ),
@@ -178,17 +178,15 @@ const PAGES: Page[] = [
     title: "Fees",
     body: (
       <>
-        <p>One fee, only on the winning world: 3% of its pot.</p>
+        <p>A 2% fee on every trade with the market maker, already included in the price you see.</p>
         <ul>
+          <li>Half goes to whoever seeded the market.</li>
           <li>
-            <span className="text-burn">2% is burned</span>, removed from IMD&apos;s supply forever.
+            <span className="text-burn">About a third is burned</span>, removed from IMD&apos;s supply forever.
           </li>
-          <li>1% goes to the builder.</li>
+          <li>The rest goes to the builder.</li>
         </ul>
-        <p>
-          No fee on refunds. No fee on a world where everyone bet the same side. The fee is never more than what the
-          losers put in, so <strong>a winner always gets back at least what they bet</strong>.
-        </p>
+        <p>No fee on claiming a payout or a refund.</p>
       </>
     ),
   },

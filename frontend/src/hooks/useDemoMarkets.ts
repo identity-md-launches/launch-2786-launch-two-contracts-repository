@@ -4,40 +4,19 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { RULES } from "@/lib/config";
 import { demoMarkets } from "@/lib/demo";
-import type { Actions, MarketView, Side, Source, World } from "@/lib/types";
+import { cost, quoteExit, quoteStake, type Q } from "@/lib/lmsr";
+import { seedFor } from "@/lib/market";
+import type { Actions, Coin, MarketView, Side, Source, World } from "@/lib/types";
 
 const DEMO_ACCOUNT = "0xdem0000000000000000000000000000000000000";
 const wait = (ms: number) => new Promise((r) => setTimeout(r, ms));
+/** Sample rates: what one unit of each coin buys in IMD, after pool fees. */
+const RATES: Record<Coin, number> = { IMD: 1, ETH: 650, USDG: 0.29 };
 
-/** Same rules as the contract, in memory: stake, ask, answer (you play the oracle), settle, claim. */
+/** Same rules as the contract, in memory: stake, exit, ask, answer (you play the oracle), settle, claim. */
 function payout(m: MarketView): number {
-  const s = m.mine;
-  if (m.status === "voided") return s[0][0] + s[0][1] + s[1][0] + s[1][1];
   if (m.status !== "settled") return 0;
-  const w = m.world;
-  const o = (1 - w) as World;
-  let amount = s[o][0] + s[o][1];
-  if (m.worldRefunded) amount += s[w][0] + s[w][1];
-  else if (s[w][m.winningSide] > 0) amount += (s[w][m.winningSide] * m.netPot) / m.pools[w][m.winningSide];
-  return amount;
-}
-
-function settle(m: MarketView): { market: MarketView; burned: number; fee: number } {
-  const world: World = m.answers[0] === 1 ? 0 : 1;
-  const side: Side = m.answers[1] === 1 ? 0 : 1;
-  const [yes, no] = m.pools[world];
-  const next: MarketView = { ...m, status: "settled", world, winningSide: side, budget: 0 };
-  if (yes === 0 || no === 0) return { market: { ...next, worldRefunded: true }, burned: 0, fee: 0 };
-  const pot = yes + no;
-  const losing = side === 0 ? no : yes;
-  let burned = (pot * RULES.burnBps) / 10_000;
-  let fee = (pot * RULES.builderBps) / 10_000;
-  if (burned + fee > losing) {
-    // As the contract: the fee is capped at the losing pool, split 2:1 between the burn and the builder.
-    burned = (losing * RULES.burnBps) / RULES.feeBps;
-    fee = losing - burned;
-  }
-  return { market: { ...next, netPot: pot - burned - fee }, burned, fee };
+  return m.mine[2 * m.world + m.winningSide];
 }
 
 export function useDemoMarkets(): Source {
@@ -68,28 +47,45 @@ export function useDemoMarkets(): Source {
 
   const actions: Actions = useMemo(
     () => ({
-      stake: async (id, world, side, amount) => {
-        if (amount < RULES.minStake) return setError(`The smallest stake is ${RULES.minStake} IMD.`);
-        if (amount > balance) return setError("Not enough demo IMD.");
-        await busy("Staking", () => {
-          setBalance((b) => b - amount);
+      stake: async (id, world, side, amount, coin) => {
+        const imd = amount * RATES[coin];
+        if (imd < RULES.minStake) return setError(`The smallest stake is ${RULES.minStake} IMD.`);
+        if (coin === "IMD" && amount > balance) return setError("Not enough demo IMD.");
+        await busy(coin === "IMD" ? "Staking" : `Swapping ${coin} and staking`, () => {
+          if (coin === "IMD") setBalance((b) => b - amount);
           update(id, (m) => {
-            const pools = m.pools.map((p) => [...p]) as MarketView["pools"];
-            const mine = m.mine.map((p) => [...p]) as MarketView["mine"];
-            pools[world][side] += amount;
-            mine[world][side] += amount;
-            return { ...m, pools, mine };
+            const { k, q, fee } = quoteStake(m.q, m.b, world, side, imd);
+            setBurned((x) => x + (fee * 67) / 200);
+            setBuilderFees((x) => x + (fee * 33) / 200);
+            const mine = [...m.mine] as Q;
+            mine[2 * world + side] += imd + k;
+            mine[2 * (1 - world)] += imd;
+            mine[2 * (1 - world) + 1] += imd;
+            return { ...m, q, mine, liquidity: m.liquidity + imd - fee };
+          });
+        });
+      },
+      exit: async (id) => {
+        await busy("Selling", () => {
+          update(id, (m) => {
+            const got = quoteExit(m.q, m.b, m.mine);
+            setBalance((b) => b + got);
+            const q = m.q.map((v, i) => v - m.mine[i]) as Q;
+            const moved = cost(m.q, m.b) - cost(q, m.b);
+            return { ...m, q, mine: [0, 0, 0, 0], liquidity: Math.max(0, m.liquidity - moved) };
           });
         });
       },
       create: async (input) => {
-        if (balance < RULES.creationDeposit) {
-          setError("Not enough demo IMD for the 1 IMD oracle deposit.");
+        const seed = seedFor(input.b);
+        const total = RULES.oracleDeposit + seed;
+        if (balance < total) {
+          setError(`Not enough demo IMD for the ${total.toFixed(2)} IMD this market needs.`);
           return undefined;
         }
         const id = markets.reduce((max, m) => Math.max(max, m.id), 0) + 1;
         await busy("Creating market", () => {
-          setBalance((b) => b - RULES.creationDeposit);
+          setBalance((b) => b - total);
           setMarkets((ms) => {
             const m: MarketView = {
               id,
@@ -103,20 +99,15 @@ export function useDemoMarkets(): Source {
               status: "open",
               world: 0,
               winningSide: 0,
-              worldRefunded: false,
               answers: [0, 0],
               openAsks: [0, 0],
               lastAskAt: [0, 0],
-              budget: RULES.creationDeposit,
-              pools: [
-                [0, 0],
-                [0, 0],
-              ],
-              netPot: 0,
-              mine: [
-                [0, 0],
-                [0, 0],
-              ],
+              budget: RULES.oracleDeposit,
+              q: [0, 0, 0, 0],
+              b: input.b,
+              seed,
+              liquidity: seed,
+              mine: [0, 0, 0, 0],
               claimable: 0,
               claimed: false,
               tag: "New",
@@ -147,22 +138,24 @@ export function useDemoMarkets(): Source {
       simulateAnswer: (id, condition, outcome) => {
         const m = markets.find((x) => x.id === id);
         if (!m || m.status !== "open") return;
-        const answered: MarketView = {
+        const world: World = condition ? 0 : 1;
+        const winningSide: Side = outcome ? 0 : 1;
+        update(id, () => ({
           ...m,
           answers: [condition ? 1 : 2, outcome ? 1 : 2],
           openAsks: [0, 0],
-        };
-        const { market, burned: b, fee } = settle(answered);
-        setBurned((x) => x + b);
-        setBuilderFees((x) => x + fee);
-        update(id, () => market);
+          status: "settled",
+          world,
+          winningSide,
+          budget: 0,
+        }));
       },
     }),
     [balance, busy, update, markets],
   );
 
   const totals = useMemo(() => {
-    const staked = markets.reduce((s, m) => s + m.pools[0][0] + m.pools[0][1] + m.pools[1][0] + m.pools[1][1], 0);
+    const staked = markets.reduce((s, m) => s + m.liquidity, 0);
     return { burned, builderFees, oracleSpend, markets: markets.length, staked };
   }, [markets, burned, builderFees, oracleSpend]);
 
@@ -177,6 +170,8 @@ export function useDemoMarkets(): Source {
     connect: () => {},
     disconnect: () => {},
     balance,
+    coinBalances: { IMD: balance, ETH: 0.5, USDG: 500 },
+    rates: RATES,
     actions,
     pending,
     error,

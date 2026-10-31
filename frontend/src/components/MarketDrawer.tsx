@@ -5,22 +5,23 @@ import { AnimatePresence, motion } from "motion/react";
 
 import { useMarkets } from "./Providers";
 import { StageChip } from "./MarketCard";
-import { FlameIcon, OracleIcon } from "./Glyphs";
+import { OracleIcon } from "./Glyphs";
 import { ADDRESSES, RULES } from "@/lib/config";
 import { fmtCountdown, fmtDate, fmtImd, fmtPct, fmtPts, short } from "@/lib/format";
 import {
   askable,
   askCost,
   estimatePayout,
+  exitValue,
   impact,
   multiple,
   myTotal,
+  overLimit,
   settleable,
   stage,
-  worldPot,
   yesChance,
 } from "@/lib/market";
-import type { MarketView, Side, World } from "@/lib/types";
+import type { Coin, MarketView, Side, World } from "@/lib/types";
 
 const WORLD = {
   0: {
@@ -110,7 +111,7 @@ function Body({ m, now, onClose }: { m: MarketView; now: number; onClose: () => 
           <StakeBox m={m} world={world} side={side} setSide={setSide} amount={amount} setAmount={setAmount} now={now} />
         ) : null}
 
-        <Position m={m} />
+        <Position m={m} now={now} />
         <Resolution m={m} now={now} />
         <Details m={m} />
       </div>
@@ -141,11 +142,12 @@ function Worlds({ m, world, setWorld }: { m: MarketView; world: World; setWorld:
               </p>
               <p className={`mt-3 font-display text-6xl leading-none ${st.grad}`}>{fmtPct(yesChance(m, w))}</p>
               <p className="mt-1 text-xs text-mute">chance of YES</p>
-              <div className="mt-4 flex items-center justify-between text-xs">
-                <span className="num text-ink-2">{fmtImd(worldPot(m, w))} IMD</span>
-                {happened && <span className={`chip !py-0.5 ${st.text}`}>Happened</span>}
-                {gone && <span className="chip !py-0.5">Refunded</span>}
-              </div>
+              {(happened || gone) && (
+                <div className="mt-4 text-xs">
+                  {happened && <span className={`chip !py-0.5 ${st.text}`}>Happened</span>}
+                  {gone && <span className="chip !py-0.5">Refunded</span>}
+                </div>
+              )}
               <PoolBar m={m} w={w} />
             </button>
           );
@@ -159,8 +161,7 @@ function Worlds({ m, world, setWorld }: { m: MarketView; world: World; setWorld:
 }
 
 function PoolBar({ m, w }: { m: MarketView; w: World }) {
-  const pot = worldPot(m, w);
-  const yes = pot === 0 ? 50 : (m.pools[w][0] / pot) * 100;
+  const yes = yesChance(m, w) * 100;
   return (
     <div className="mt-3 flex h-1.5 overflow-hidden rounded-full bg-white/5">
       <div className={w === 0 ? "bg-sun" : "bg-moon"} style={{ width: `${yes}%` }} />
@@ -188,12 +189,16 @@ function StakeBox({
 }) {
   const src = useMarkets();
   const st = WORLD[world];
+  const [coin, setCoin] = useState<Coin>("IMD");
   const value = Number(amount) || 0;
-  const payout = estimatePayout(m, world, side, value);
-  const mult = multiple(m, world, side, value);
+  const imd = value * src.rates[coin];
+  const payout = estimatePayout(m, world, side, imd);
+  const mult = multiple(m, world, side, imd);
   const other = (1 - world) as World;
-  const tooSmall = value > 0 && value < RULES.minStake;
-  const tooBig = src.connected && value > src.balance;
+  const tooSmall = value > 0 && imd < RULES.minStake;
+  const tooBig = src.connected && value > src.coinBalances[coin];
+  const limited = overLimit(m, world, side, imd);
+  const quick = coin === "IMD" ? ["1", "5", "25", "100"] : coin === "ETH" ? ["0.001", "0.01", "0.05", "0.1"] : ["5", "25", "100", "500"];
 
   return (
     <div className="panel mt-8 p-5 sm:p-6">
@@ -219,32 +224,48 @@ function StakeBox({
         ))}
       </div>
 
-      <div className="mt-4 flex items-center gap-2">
+      <div className="mt-4 flex gap-1.5" role="group" aria-label="Pay with">
+        {(["IMD", "ETH", "USDG"] as const).map((c) => (
+          <button
+            key={c}
+            onClick={() => {
+              setCoin(c);
+              setAmount("");
+            }}
+            className={`chip !px-3.5 !py-1.5 hover:border-line-2 hover:text-ink ${coin === c ? "!border-line-2 !text-ink" : ""}`}
+          >
+            {c}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-3 flex items-center gap-2">
         <div className="relative flex-1">
           <input
             inputMode="decimal"
             value={amount}
             onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))}
             className="field num !py-3.5 !pr-16 text-xl"
-            aria-label="Amount in IMD"
+            aria-label={`Amount in ${coin}`}
           />
-          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-mute">IMD</span>
+          <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm text-mute">{coin}</span>
         </div>
       </div>
-      <div className="mt-2 flex gap-1.5">
-        {["1", "5", "25", "100"].map((v) => (
+      <div className="mt-2 flex flex-wrap items-center gap-1.5">
+        {quick.map((v) => (
           <button key={v} onClick={() => setAmount(v)} className="chip hover:border-line-2 hover:text-ink">
             {v}
           </button>
         ))}
-        {src.connected && (
+        {src.connected && coin !== "ETH" && (
           <button
-            onClick={() => setAmount(String(Math.floor(src.balance * 1000) / 1000))}
+            onClick={() => setAmount(String(Math.floor(src.coinBalances[coin] * 1000) / 1000))}
             className="chip hover:border-line-2 hover:text-ink"
           >
             Max
           </button>
         )}
+        {coin !== "IMD" && value > 0 && <span className="num ml-auto text-xs text-mute">≈ {fmtImd(imd)} IMD</span>}
       </div>
 
       <div className="mt-5 space-y-2.5 rounded-2xl border border-line bg-black/25 p-4 text-sm">
@@ -262,14 +283,14 @@ function StakeBox({
         />
         <Row
           k={<span className={WORLD[other].text}>{cap(WORLD[other].label)}</span>}
-          v={<span className="num text-ink-2">refunded · {fmtImd(value)} IMD</span>}
+          v={<span className="num text-ink-2">refunded · {fmtImd(imd)} IMD</span>}
         />
         <Row k={<>If {side === 0 ? "NO" : "YES"} wins</>} v={<span className="num text-mute">0</span>} />
       </div>
 
       <button
-        disabled={!value || tooSmall || tooBig || Boolean(src.pending)}
-        onClick={() => (src.connected ? src.actions.stake(m.id, world, side, value) : src.connect())}
+        disabled={!value || tooSmall || tooBig || limited || Boolean(src.pending)}
+        onClick={() => (src.connected ? src.actions.stake(m.id, world, side, value, coin) : src.connect())}
         className={`btn mt-5 w-full !py-4 text-base ${st.btn}`}
       >
         {!src.connected
@@ -277,12 +298,13 @@ function StakeBox({
           : tooSmall
             ? `Minimum ${RULES.minStake} IMD`
             : tooBig
-              ? "Not enough IMD"
-              : src.pending ?? `Stake ${fmtImd(value)} IMD on ${side === 0 ? "YES" : "NO"} in ${st.name}`}
+              ? `Not enough ${coin}`
+              : limited
+                ? "Too large for this market's liquidity"
+                : src.pending ?? `Stake ${fmtImd(value)} ${coin} on ${side === 0 ? "YES" : "NO"} in ${st.name}`}
       </button>
       <p className="mt-3 text-center text-xs text-mute">
-        3% of the winning world&apos;s pot is taken at settlement: 2% burned, 1% to the builder. The fee never
-        exceeds the losing side&apos;s stakes, so a winner never nets less than staked.
+        A 2% fee is included in this price. Positions and payouts are in IMD{coin === "IMD" ? "" : `, and ${coin} is swapped into IMD in the same transaction`}.
       </p>
     </div>
   );
@@ -299,7 +321,7 @@ function Row({ k, v }: { k: React.ReactNode; v: React.ReactNode }) {
   );
 }
 
-function Position({ m }: { m: MarketView }) {
+function Position({ m, now }: { m: MarketView; now: number }) {
   const src = useMarkets();
   const total = myTotal(m);
   if (!src.connected || (total === 0 && m.claimable === 0 && !m.claimed)) return null;
@@ -314,16 +336,21 @@ function Position({ m }: { m: MarketView }) {
           <div key={w} className="rounded-xl border border-line bg-black/20 p-3">
             <p className={`eyebrow !text-[0.6rem] ${WORLD[w].text}`}>{WORLD[w].name}</p>
             <p className="mt-2 flex justify-between">
-              <span className="text-mute">YES</span>
-              <span className="num">{fmtImd(m.mine[w][0])}</span>
+              <span className="text-mute">Pays if YES</span>
+              <span className="num">{fmtImd(m.mine[2 * w])}</span>
             </p>
             <p className="flex justify-between">
-              <span className="text-mute">NO</span>
-              <span className="num">{fmtImd(m.mine[w][1])}</span>
+              <span className="text-mute">Pays if NO</span>
+              <span className="num">{fmtImd(m.mine[2 * w + 1])}</span>
             </p>
           </div>
         ))}
       </div>
+      {stage(m, now) === "trading" && total > 0 && (
+        <button onClick={() => src.actions.exit(m.id)} disabled={Boolean(src.pending)} className="btn btn-ghost mt-4 w-full !py-3.5">
+          {src.pending ?? `Sell position · ≈ ${fmtImd(exitValue(m))} IMD`}
+        </button>
+      )}
       {m.claimable > 0 && (
         <button onClick={() => src.actions.claim(m.id)} disabled={Boolean(src.pending)} className="btn btn-primary mt-4 w-full !py-3.5">
           {src.pending ?? `Claim ${fmtImd(m.claimable)} IMD`}
@@ -365,9 +392,7 @@ function Resolution({ m, now }: { m: MarketView; now: number }) {
       label: m.status === "voided" ? "Voided" : "Settled",
       sub:
         m.status === "settled"
-          ? m.worldRefunded
-            ? "one-sided world, refunded"
-            : `${m.world === 0 ? "World A" : "World B"} · ${m.winningSide === 0 ? "YES" : "NO"} won`
+          ? `${m.world === 0 ? "World A" : "World B"} · ${m.winningSide === 0 ? "YES" : "NO"} won`
           : m.status === "voided"
             ? "every stake refunded"
             : `void after ${fmtDate(m.voidAfter)} if unanswered`,
@@ -444,8 +469,6 @@ function Resolution({ m, now }: { m: MarketView; now: number }) {
 }
 
 function Details({ m }: { m: MarketView }) {
-  const settled = m.status === "settled" && !m.worldRefunded;
-  const pot = settled ? worldPot(m, m.world) : 0;
   return (
     <div className="mt-8 space-y-4">
       <div className="rounded-2xl border border-line p-4 sm:p-5">
@@ -463,14 +486,6 @@ function Details({ m }: { m: MarketView }) {
         <Info k="Oracle signer" v={short(ADDRESSES.oracleSigner)} />
         <Info k="Intake" v={short(ADDRESSES.intake)} />
       </div>
-      {settled && (
-        <div className="flex items-center gap-3 rounded-2xl border border-burn/30 bg-burn/[0.06] p-4 text-sm">
-          <FlameIcon className="h-5 w-5 text-burn" />
-          <span className="text-ink-2">
-            Burned <span className="num text-ink">{fmtImd((pot * RULES.burnBps) / 10_000)} IMD</span> from this market.
-          </span>
-        </div>
-      )}
     </div>
   );
 }

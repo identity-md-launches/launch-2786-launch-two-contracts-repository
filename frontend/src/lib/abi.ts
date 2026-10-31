@@ -34,45 +34,6 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "ATTESTATION_TYPEHASH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BUILDER_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "BURN_ADDRESS",
     "inputs": [],
     "outputs": [
@@ -80,58 +41,6 @@ export const conditionalsAbi = [
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "BURN_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "CONDITION",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "CONFIG_DELAY",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "CONFIG_WINDOW",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
@@ -151,7 +60,7 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "ISSUED_AT_TOLERANCE",
+    "name": "MAX_B",
     "inputs": [],
     "outputs": [
       {
@@ -164,7 +73,7 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "MAX_CONDITION_LENGTH",
+    "name": "MIN_B",
     "inputs": [],
     "outputs": [
       {
@@ -177,137 +86,7 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "MAX_HORIZON",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_OUTCOME_LENGTH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_PANEL_SIZE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_PRICE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_RULES_LENGTH",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MIN_PANEL_SIZE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint16",
-        "internalType": "uint16"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MIN_STAKE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "NO",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "ORACLE_ACTION",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "bytes32",
-        "internalType": "bytes32"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "OUTCOME",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "QUESTION_CHAIN_ID",
+    "name": "MIN_TRADE",
     "inputs": [],
     "outputs": [
       {
@@ -346,19 +125,6 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "VALID_FOR_SECONDS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "WINDOW_DEPTH",
     "inputs": [],
     "outputs": [
@@ -366,45 +132,6 @@ export const conditionalsAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "WORLD_DOES_NOT",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "WORLD_HAPPENS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "YES",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint8",
-        "internalType": "uint8"
       }
     ],
     "stateMutability": "view"
@@ -579,6 +306,45 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
+    "name": "buy",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "outcome",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "maxCost",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "cost",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "claim",
     "inputs": [
       {
@@ -646,6 +412,30 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
+    "name": "conditionals",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "yesIfCondition",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "yesIfNot",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "createMarket",
     "inputs": [
       {
@@ -675,6 +465,11 @@ export const conditionalsAbi = [
       },
       {
         "name": "maxBudget",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "b",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -733,6 +528,30 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
+    "name": "exit",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minProceeds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proceeds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "feeRecipient",
     "inputs": [],
     "outputs": [
@@ -758,7 +577,7 @@ export const conditionalsAbi = [
       {
         "name": "",
         "type": "tuple",
-        "internalType": "struct Conditionals.Market",
+        "internalType": "struct ConditionalsV2.Market",
         "components": [
           {
             "name": "creator",
@@ -783,22 +602,12 @@ export const conditionalsAbi = [
           {
             "name": "status",
             "type": "uint8",
-            "internalType": "enum Conditionals.Status"
+            "internalType": "enum ConditionalsV2.Status"
           },
           {
-            "name": "world",
+            "name": "winner",
             "type": "uint8",
             "internalType": "uint8"
-          },
-          {
-            "name": "winningSide",
-            "type": "uint8",
-            "internalType": "uint8"
-          },
-          {
-            "name": "worldRefunded",
-            "type": "bool",
-            "internalType": "bool"
           },
           {
             "name": "answers",
@@ -818,7 +627,7 @@ export const conditionalsAbi = [
           {
             "name": "oracle",
             "type": "tuple",
-            "internalType": "struct Conditionals.OracleConfig",
+            "internalType": "struct ConditionalsV2.OracleConfig",
             "components": [
               {
                 "name": "intake",
@@ -858,12 +667,37 @@ export const conditionalsAbi = [
             "internalType": "uint256"
           },
           {
-            "name": "pools",
-            "type": "uint256[2][2]",
-            "internalType": "uint256[2][2]"
+            "name": "q",
+            "type": "int256[4]",
+            "internalType": "int256[4]"
           },
           {
-            "name": "netPot",
+            "name": "b",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "subsidy",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "makerBalance",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "sets",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "refundBase",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
+            "name": "refundPool",
             "type": "uint256",
             "internalType": "uint256"
           },
@@ -909,6 +743,30 @@ export const conditionalsAbi = [
         "name": "",
         "type": "uint256",
         "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "netIn",
+    "inputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "int256",
+        "internalType": "int256"
       }
     ],
     "stateMutability": "view"
@@ -1187,12 +1045,31 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
+    "name": "prices",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[4]",
+        "internalType": "uint256[4]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
     "name": "proposeOracleConfig",
     "inputs": [
       {
         "name": "config",
         "type": "tuple",
-        "internalType": "struct Conditionals.OracleConfig",
+        "internalType": "struct ConditionalsV2.OracleConfig",
         "components": [
           {
             "name": "intake",
@@ -1261,14 +1138,7 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "renounceOwnership",
-    "inputs": [],
-    "outputs": [],
-    "stateMutability": "nonpayable"
-  },
-  {
-    "type": "function",
-    "name": "requestBody",
+    "name": "quoteStake",
     "inputs": [
       {
         "name": "marketId",
@@ -1276,24 +1146,41 @@ export const conditionalsAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "question",
+        "name": "world",
         "type": "uint8",
         "internalType": "uint8"
       },
       {
-        "name": "windowBlock",
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
       }
     ],
     "outputs": [
       {
-        "name": "",
-        "type": "string",
-        "internalType": "string"
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "fee",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "renounceOwnership",
+    "inputs": [],
+    "outputs": [],
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1308,6 +1195,59 @@ export const conditionalsAbi = [
     "outputs": [
       {
         "name": "asked",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "seedFor",
+    "inputs": [
+      {
+        "name": "b",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "pure"
+  },
+  {
+    "type": "function",
+    "name": "sell",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "outcome",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minProceeds",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "proceeds",
         "type": "uint256",
         "internalType": "uint256"
       }
@@ -1361,7 +1301,31 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "stake",
+    "name": "sharesOf",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256[4]",
+        "internalType": "uint256[4]"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakeConditional",
     "inputs": [
       {
         "name": "marketId",
@@ -1382,34 +1346,65 @@ export const conditionalsAbi = [
         "name": "amount",
         "type": "uint256",
         "internalType": "uint256"
+      },
+      {
+        "name": "minShares",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
-    "outputs": [],
+    "outputs": [
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
     "stateMutability": "nonpayable"
   },
   {
     "type": "function",
-    "name": "stakesOf",
+    "name": "stakeFor",
     "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "internalType": "address"
+      },
       {
         "name": "marketId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "trader",
-        "type": "address",
-        "internalType": "address"
+        "name": "world",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minShares",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
     "outputs": [
       {
-        "name": "",
-        "type": "uint256[2][2]",
-        "internalType": "uint256[2][2]"
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
       }
     ],
-    "stateMutability": "view"
+    "stateMutability": "nonpayable"
   },
   {
     "type": "function",
@@ -1427,6 +1422,19 @@ export const conditionalsAbi = [
   {
     "type": "function",
     "name": "totalBurned",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "totalCreatorFees",
     "inputs": [],
     "outputs": [
       {
@@ -1699,6 +1707,18 @@ export const conditionalsAbi = [
         "internalType": "uint64"
       },
       {
+        "name": "b",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "seed",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
         "name": "condition",
         "type": "string",
         "indexed": false,
@@ -1727,7 +1747,7 @@ export const conditionalsAbi = [
         "name": "config",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct Conditionals.OracleConfig",
+        "internalType": "struct ConditionalsV2.OracleConfig",
         "components": [
           {
             "name": "intake",
@@ -1772,7 +1792,7 @@ export const conditionalsAbi = [
         "name": "config",
         "type": "tuple",
         "indexed": false,
-        "internalType": "struct Conditionals.OracleConfig",
+        "internalType": "struct ConditionalsV2.OracleConfig",
         "components": [
           {
             "name": "intake",
@@ -1939,31 +1959,13 @@ export const conditionalsAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "world",
+        "name": "winner",
         "type": "uint8",
         "indexed": false,
         "internalType": "uint8"
       },
       {
-        "name": "winningSide",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
-      },
-      {
-        "name": "worldRefunded",
-        "type": "bool",
-        "indexed": false,
-        "internalType": "bool"
-      },
-      {
-        "name": "burned",
-        "type": "uint256",
-        "indexed": false,
-        "internalType": "uint256"
-      },
-      {
-        "name": "builderFee",
+        "name": "makerResidual",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -1973,7 +1975,7 @@ export const conditionalsAbi = [
   },
   {
     "type": "event",
-    "name": "Staked",
+    "name": "Traded",
     "inputs": [
       {
         "name": "marketId",
@@ -1982,25 +1984,19 @@ export const conditionalsAbi = [
         "internalType": "uint256"
       },
       {
-        "name": "trader",
+        "name": "account",
         "type": "address",
         "indexed": true,
         "internalType": "address"
       },
       {
-        "name": "world",
-        "type": "uint8",
+        "name": "collateral",
+        "type": "int256",
         "indexed": false,
-        "internalType": "uint8"
+        "internalType": "int256"
       },
       {
-        "name": "side",
-        "type": "uint8",
-        "indexed": false,
-        "internalType": "uint8"
-      },
-      {
-        "name": "amount",
+        "name": "fee",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
@@ -2016,6 +2012,24 @@ export const conditionalsAbi = [
         "name": "marketId",
         "type": "uint256",
         "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "refundPool",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "refundBase",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "toCreator",
+        "type": "uint256",
+        "indexed": false,
         "internalType": "uint256"
       }
     ],
@@ -2064,6 +2078,11 @@ export const conditionalsAbi = [
   },
   {
     "type": "error",
+    "name": "InsufficientMaker",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "InvalidChoice",
     "inputs": []
   },
@@ -2090,6 +2109,11 @@ export const conditionalsAbi = [
   {
     "type": "error",
     "name": "MarketNotOpen",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "NoPosition",
     "inputs": []
   },
   {
@@ -2136,6 +2160,11 @@ export const conditionalsAbi = [
   },
   {
     "type": "error",
+    "name": "PriceLimit",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "ReentrancyGuardReentrantCall",
     "inputs": []
   },
@@ -2152,7 +2181,7 @@ export const conditionalsAbi = [
   },
   {
     "type": "error",
-    "name": "StakeTooSmall",
+    "name": "SlippageExceeded",
     "inputs": []
   },
   {
@@ -2189,6 +2218,16 @@ export const conditionalsAbi = [
   },
   {
     "type": "error",
+    "name": "TradeTooLarge",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "TradeTooSmall",
+    "inputs": []
+  },
+  {
+    "type": "error",
     "name": "UnknownAsk",
     "inputs": []
   },
@@ -2200,6 +2239,330 @@ export const conditionalsAbi = [
   {
     "type": "error",
     "name": "ZeroAddress",
+    "inputs": []
+  }
+] as const;
+
+export const zapAbi = [
+  {
+    "type": "constructor",
+    "inputs": [
+      {
+        "name": "conditionals_",
+        "type": "address",
+        "internalType": "contract ConditionalsV2"
+      },
+      {
+        "name": "poolManager_",
+        "type": "address",
+        "internalType": "contract IPoolManager"
+      },
+      {
+        "name": "imd_",
+        "type": "address",
+        "internalType": "contract IERC20"
+      },
+      {
+        "name": "usdg_",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "ETH_IMD_FEE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint24",
+        "internalType": "uint24"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ETH_IMD_TICK_SPACING",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "int24",
+        "internalType": "int24"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ETH_USDG_FEE",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "uint24",
+        "internalType": "uint24"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "ETH_USDG_TICK_SPACING",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "int24",
+        "internalType": "int24"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "conditionals",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract ConditionalsV2"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "imd",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "poolManager",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IPoolManager"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "function",
+    "name": "stakeWithEth",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "world",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "minImd",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "imdStaked",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "payable"
+  },
+  {
+    "type": "function",
+    "name": "stakeWithUsdg",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "world",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "side",
+        "type": "uint8",
+        "internalType": "uint8"
+      },
+      {
+        "name": "amount",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minImd",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "minShares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "imdStaked",
+        "type": "uint256",
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "unlockCallback",
+    "inputs": [
+      {
+        "name": "data",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "outputs": [
+      {
+        "name": "",
+        "type": "bytes",
+        "internalType": "bytes"
+      }
+    ],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
+    "name": "usdg",
+    "inputs": [],
+    "outputs": [
+      {
+        "name": "",
+        "type": "address",
+        "internalType": "contract IERC20"
+      }
+    ],
+    "stateMutability": "view"
+  },
+  {
+    "type": "event",
+    "name": "Zapped",
+    "inputs": [
+      {
+        "name": "account",
+        "type": "address",
+        "indexed": true,
+        "internalType": "address"
+      },
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "coin",
+        "type": "address",
+        "indexed": false,
+        "internalType": "address"
+      },
+      {
+        "name": "amountIn",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "imdStaked",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      },
+      {
+        "name": "shares",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "error",
+    "name": "NotPoolManager",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "PartialFill",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "SafeERC20FailedOperation",
+    "inputs": [
+      {
+        "name": "token",
+        "type": "address",
+        "internalType": "address"
+      }
+    ]
+  },
+  {
+    "type": "error",
+    "name": "SlippageExceeded",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAddress",
+    "inputs": []
+  },
+  {
+    "type": "error",
+    "name": "ZeroAmount",
     "inputs": []
   }
 ] as const;

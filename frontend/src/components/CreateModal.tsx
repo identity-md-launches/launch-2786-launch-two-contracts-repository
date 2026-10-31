@@ -6,6 +6,7 @@ import { AnimatePresence, motion } from "motion/react";
 import { useMarkets } from "./Providers";
 import { ForkGlyph, OracleIcon } from "./Glyphs";
 import { RULES } from "@/lib/config";
+import { seedFor } from "@/lib/market";
 import type { MarketView } from "@/lib/types";
 
 /** The contract's text rule: printable ASCII without `"` or `\`. */
@@ -50,6 +51,9 @@ export function CreateModal({ open, onClose, onCreated, now }: { open: boolean; 
   // Until edited, trading closes in 14 days and the market is judged in 60.
   const close = closeInput || (now ? toLocalInput(now + 14 * 86_400) : "");
   const resolve = resolveInput || (now ? toLocalInput(now + 60 * 86_400) : "");
+  // A seed of about 2 IMD: b ln 4 = 2.
+  const [b, setB] = useState(1.44);
+  const seed = seedFor(b);
   const [check, setCheck] = useState<Check | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -88,20 +92,15 @@ export function CreateModal({ open, onClose, onCreated, now }: { open: boolean; 
     status: "open",
     world: 0,
     winningSide: 0,
-    worldRefunded: false,
     answers: [0, 0],
     openAsks: [0, 0],
     lastAskAt: [0, 0],
     budget: 1,
-    pools: [
-      [1, 1],
-      [1, 1],
-    ],
-    netPot: 0,
-    mine: [
-      [0, 0],
-      [0, 0],
-    ],
+    q: [0, 0, 0, 0],
+    b,
+    seed,
+    liquidity: seed,
+    mine: [0, 0, 0, 0],
     claimable: 0,
     claimed: false,
   };
@@ -134,7 +133,7 @@ export function CreateModal({ open, onClose, onCreated, now }: { open: boolean; 
   };
 
   const submit = async () => {
-    const id = await src.actions.create({ condition: condition.trim(), outcome: outcome.trim(), rules: rules.trim(), closeTime, resolveTime });
+    const id = await src.actions.create({ condition: condition.trim(), outcome: outcome.trim(), rules: rules.trim(), closeTime, resolveTime, b });
     if (id) {
       setCondition("");
       setOutcome("");
@@ -300,9 +299,29 @@ export function CreateModal({ open, onClose, onCreated, now }: { open: boolean; 
                 </div>
 
                 <div className="mt-6 space-y-2 text-sm">
-                  <div className="flex justify-between">
+                  <div className="flex items-center justify-between gap-4">
+                    <label htmlFor="seed" className="text-mute">
+                      Liquidity seed
+                    </label>
+                    <span className="num">{seed.toFixed(2)} IMD</span>
+                  </div>
+                  <input
+                    id="seed"
+                    type="range"
+                    min={Math.log(RULES.minB)}
+                    max={Math.log(RULES.maxB)}
+                    step={0.01}
+                    value={Math.log(b)}
+                    onChange={(e) => setB(Math.round(Math.exp(Number(e.target.value)) * 100) / 100)}
+                    className="w-full accent-[#FFB547]"
+                  />
+                  <p className="text-xs text-mute">
+                    Gives the market its first prices, with no side taken. A bigger seed means steadier prices. It is the most
+                    you can lose, and you earn half of every trading fee.
+                  </p>
+                  <div className="flex justify-between pt-2">
                     <span className="text-mute">Oracle deposit</span>
-                    <span className="num">{RULES.creationDeposit} IMD</span>
+                    <span className="num">{RULES.oracleDeposit} IMD</span>
                   </div>
                   <p className="text-xs text-mute">
                     Pays for the two oracle questions ({RULES.oraclePrice} IMD each, to the IMD swarm). Anything unspent comes
@@ -315,7 +334,7 @@ export function CreateModal({ open, onClose, onCreated, now }: { open: boolean; 
                   disabled={src.connected && (errors.length > 0 || Boolean(src.pending))}
                   className="btn btn-primary mt-6 w-full !py-4 text-base"
                 >
-                  {!src.connected ? "Connect wallet" : src.pending ?? `Create market · ${RULES.creationDeposit} IMD`}
+                  {!src.connected ? "Connect wallet" : src.pending ?? `Create market · ${(RULES.oracleDeposit + seed).toFixed(2)} IMD`}
                 </button>
               </div>
             </div>

@@ -3,6 +3,23 @@
 Last updated: 2026-10-31. Separate entry from GAMMA (`~/projects/imd`). GitHub and Vercel: **UgwujaGeorge** (not
 haileymarshall). Push with `gh auth token --user UgwujaGeorge`; do not switch the active gh account.
 
+## V2 launch in progress (2026-10-31)
+
+- Branch `v2`, commit `4b1f184`: `src/ConditionalsV2.sol` (LMSR, IMD only, seed required, no vault) and
+  `src/ConditionalsZap.sol` (ETH and USDG into IMD through Uniswap v4). v1 moved to `legacy/v1`, not built. 51 tests plus 5 fork tests pass.
+- **Paid IMD launch**: tx `0x0ed9be336c67e29c184f4a1adae5cadb7b331af07bf1ddc04053e09357adf98e`. Follow it with
+  `GET https://api.imd.fun/intake/4663/<tx>`. Wallet after payment: 15.5 IMD, ~0.0015 ETH.
+- USDG is `0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168` (Global Dollar). The direct IMD/USDG pool is empty (~$43), so
+  USDG routes USDG to ETH (fee 500, spacing 10) then ETH to IMD (fee 10000, spacing 100). PoolManager
+  `0x8366a39CC670B4001A1121B8F6A443A643e40951`.
+- After it deploys: merge the delivered commit, point the frontend at the addresses, remove the "Coming with v2" chip
+  once a live ETH and USDG stake works, then create the 4 markets with b = 1.44 IMD (seed ~2 IMD, plus 1 IMD oracle each):
+  1. If the Fed raises rates at its Dec 9 decision, will BTC close above $80,000 on Dec 31? (close before Dec 9)
+  2. If the US strikes Iran by Dec 31, will Brent close above $X on Dec 31?
+  3. If the Senate holds another Clarity Act vote by Dec 31, will ETH close above $2,500 on Dec 31?
+  4. If BTC closes above $85,000 on Dec 31, will IMD close above $5 on Dec 31?
+- Promo video: remake from scratch, no reference, original soundtrack. Sources in `~/projects/conditionals-video`.
+
 ## Session 2026-10-31: domain live, frontend adjustments
 
 - **https://conditionals.xyz is live** (bought by the user, renews at $13/yr). `www` and `conditionals-bay.vercel.app`

@@ -15,7 +15,7 @@ const STEPS = [
   {
     n: "02",
     title: "Stake in a world",
-    body: "Back YES or NO in either world, in IMD. Odds move with every stake. You can hold positions in both worlds at once.",
+    body: "Back YES or NO in either world. The price is live from the first trade and fixed when you enter. You can hold positions in both worlds at once.",
   },
   {
     n: "03",
@@ -25,7 +25,7 @@ const STEPS = [
   {
     n: "04",
     title: "One world settles",
-    body: "The world that didn't happen is refunded in full. In the one that did, the winning side takes the pot. 2% burns, 1% to the builder.",
+    body: "The world that didn't happen is refunded. In the one that did, every winning share pays 1 IMD. Sell any time before the close if you change your mind.",
   },
 ];
 
@@ -82,13 +82,11 @@ const IMD_CARDS = [
     dot: "bg-sun shadow-[0_0_16px_#FFB547]",
     title: "Bets are made in IMD",
     body: "Every market, pot and payout is in IMD.",
-    soon: false,
   },
   {
     dot: "bg-moon shadow-[0_0_16px_#7DE3FF]",
     title: "Place bets with ETH or USDG",
     body: "Use the ETH or USDG in your wallet to place a bet.",
-    soon: true,
   },
 ];
 
@@ -105,7 +103,6 @@ export function ImdSection() {
               <span className={`block h-3 w-3 rounded-full ${c.dot}`} />
               <h3 className="mt-5 text-lg">{c.title}</h3>
               <p className="mt-2 text-sm leading-relaxed text-ink-2">{c.body}</p>
-              {c.soon && <span className="chip mt-4">Coming with v2</span>}
             </div>
           ))}
         </div>

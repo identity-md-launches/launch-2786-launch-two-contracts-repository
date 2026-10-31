@@ -1,5 +1,5 @@
 import { fmtPct } from "@/lib/format";
-import { worldPot, yesChance } from "@/lib/market";
+import { yesChance } from "@/lib/market";
 import type { MarketView } from "@/lib/types";
 
 /** The brand mark: one line that splits in two. */
@@ -24,11 +24,9 @@ export function Logo({ size = 26 }: { size?: number | string }) {
   );
 }
 
-/** A market as a fork: branch thickness follows each world's stakes, labels show YES in each world. */
+/** A market as a fork: branch thickness follows the chance of YES in each world, as do the labels. */
 export function ForkGlyph({ m, height = 120, settledWorld }: { m: MarketView; height?: number; settledWorld?: 0 | 1 }) {
-  const total = worldPot(m, 0) + worldPot(m, 1);
-  const share = (w: 0 | 1) => (total === 0 ? 0.5 : worldPot(m, w) / total);
-  const width = (w: 0 | 1) => 1.5 + share(w) * 6;
+  const width = (w: 0 | 1) => 1.5 + yesChance(m, w) * 4;
   const h = height;
   const fy = h / 2;
   const dim = (w: 0 | 1) => (settledWorld === undefined ? 1 : settledWorld === w ? 1 : 0.18);

@@ -26,7 +26,7 @@ export function Markets({ now, onCreate }: { now: number; onCreate: () => void }
       if (filter === "live") return s === "trading";
       if (filter === "resolving") return s === "closed" || s === "resolving" || s === "voidable";
       if (filter === "done") return s === "settled" || s === "voided";
-      if (filter === "mine") return m.mine.flat().some((v) => v > 0) || m.claimable > 0;
+      if (filter === "mine") return m.mine.some((v) => v > 0) || m.claimable > 0;
       return true;
     });
     const rank = (s: string) => (s === "trading" ? 0 : s === "resolving" || s === "voidable" ? 1 : s === "closed" ? 2 : 3);

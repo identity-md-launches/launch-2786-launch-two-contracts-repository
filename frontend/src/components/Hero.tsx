@@ -57,7 +57,7 @@ export function Hero({ onCreate }: { onCreate: () => void }) {
             Conditional markets. Price what an outcome is worth{" "}
             <span className="text-sun">if an event happens</span>, and{" "}
             <span className="text-moon">if it doesn&apos;t</span>. The world that doesn&apos;t happen is
-            refunded. Every fee burns IMD.
+            refunded. Sell any time.
           </p>
           <div className="animate-rise mt-7 flex flex-wrap gap-3" style={{ animationDelay: "0.45s" }}>
             <a href="#markets" className="btn btn-primary">

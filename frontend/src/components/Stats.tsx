@@ -11,7 +11,7 @@ export function Stats() {
     {
       label: "IMD burned",
       value: fmtImd(totals.burned),
-      hint: "2% of every settled pot",
+      hint: "A share of every trading fee",
       icon: <FlameIcon className="h-5 w-5 text-burn" />,
     },
     {

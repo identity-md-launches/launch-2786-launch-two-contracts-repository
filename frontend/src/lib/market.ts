@@ -1,51 +1,47 @@
 import { RULES } from "./config";
+import { prices, quoteExit, quoteStake } from "./lmsr";
 import type { MarketView, Side, World } from "./types";
 
 export const WORLD_NAMES: Record<World, string> = { 0: "It happens", 1: "It doesn't" };
 
-export function worldPot(m: MarketView, w: World) {
-  return m.pools[w][0] + m.pools[w][1];
-}
-
 export function totalStaked(m: MarketView) {
-  return worldPot(m, 0) + worldPot(m, 1);
+  return m.liquidity;
 }
 
-/** Implied YES probability in a world, from its pools; null when nobody has staked there. */
-export function yesChance(m: MarketView, w: World): number | null {
-  const pot = worldPot(m, w);
-  return pot === 0 ? null : m.pools[w][0] / pot;
+/** The market's chance of YES in a world. */
+export function yesChance(m: MarketView, w: World): number {
+  const p = prices(m.q, m.b);
+  const yes = p[2 * w];
+  return yes / (yes + p[2 * w + 1]);
 }
 
 /** How many points the condition moves the outcome: YES in world 0 minus YES in world 1. */
-export function impact(m: MarketView): number | null {
-  const a = yesChance(m, 0);
-  const b = yesChance(m, 1);
-  return a === null || b === null ? null : (a - b) * 100;
+export function impact(m: MarketView): number {
+  return (yesChance(m, 0) - yesChance(m, 1)) * 100;
 }
 
-/** The fee on a settled world: 3% of the pot, capped at the losing pool so a winner never nets less than staked. */
-export function worldFee(winning: number, losing: number) {
-  return Math.min(((winning + losing) * RULES.feeBps) / 10_000, losing);
-}
-
-/** Payout multiple on a winning side, after the fee. */
-export function multiple(m: MarketView, w: World, s: Side, extra = 0): number | null {
-  const pool = m.pools[w][s] + extra;
-  const other = m.pools[w][s === 0 ? 1 : 0];
-  if (pool === 0) return null;
-  if (other === 0) return 1;
-  return (pool + other - worldFee(pool, other)) / pool;
-}
-
-/** What a new stake would pay if its world happens and its side wins. */
+/** What a new stake of `amount` IMD would pay if its world happens and its side wins. */
 export function estimatePayout(m: MarketView, w: World, s: Side, amount: number) {
   if (amount <= 0) return 0;
-  const pool = m.pools[w][s] + amount;
-  const other = m.pools[w][s === 0 ? 1 : 0];
-  if (other === 0) return amount;
-  return (amount * (pool + other - worldFee(pool, other))) / pool;
+  return amount + quoteStake(m.q, m.b, w, s, amount).k;
 }
+
+export function multiple(m: MarketView, w: World, s: Side, amount: number): number | null {
+  return amount > 0 ? estimatePayout(m, w, s, amount) / amount : null;
+}
+
+/** Whether a stake would push the market past the contract's price limit. */
+export function overLimit(m: MarketView, w: World, s: Side, amount: number) {
+  return amount > 0 && quoteStake(m.q, m.b, w, s, amount).limited;
+}
+
+/** What selling the connected account's whole position gives now. */
+export function exitValue(m: MarketView) {
+  return quoteExit(m.q, m.b, m.mine);
+}
+
+/** The seed a liquidity parameter needs, b ln 4: also the most a creator can lose. */
+export const seedFor = (b: number) => b * Math.log(4);
 
 export type Stage = "trading" | "closed" | "resolving" | "voidable" | "settled" | "voided";
 
@@ -103,5 +99,5 @@ export const STAGE_LABEL: Record<Stage, string> = {
 };
 
 export function myTotal(m: MarketView) {
-  return m.mine[0][0] + m.mine[0][1] + m.mine[1][0] + m.mine[1][1];
+  return m.mine[0] + m.mine[1] + m.mine[2] + m.mine[3];
 }

@@ -12,14 +12,17 @@ export const chain = robinhood;
 
 const env = (v: string | undefined) => (v && v.startsWith("0x") && v.length === 42 ? (v as Address) : undefined);
 
-/** Set once the IMD launch is live. Without it, or with NEXT_PUBLIC_DEMO=1, the site runs on sample markets. */
-/** IMD launch 2278 on Robinhood Chain. */
-const DEPLOYED: Address | undefined = "0xc8cc656b71dd77ae1e29b0bc7890edd110e73255";
+/** Set once the IMD launch is live. Without them, or with NEXT_PUBLIC_DEMO=1, the site runs on sample markets. */
+const DEPLOYED: Address | undefined = undefined;
+const DEPLOYED_ZAP: Address | undefined = undefined;
 
 const demo = process.env.NEXT_PUBLIC_DEMO === "1";
 
 export const ADDRESSES = {
   conditionals: demo ? undefined : (env(process.env.NEXT_PUBLIC_CONDITIONALS_ADDRESS) ?? DEPLOYED),
+  zap: demo ? undefined : (env(process.env.NEXT_PUBLIC_ZAP_ADDRESS) ?? DEPLOYED_ZAP),
+  usdg: "0x5fc5360D0400a0Fd4f2af552ADD042D716F1d168" as Address,
+  poolManager: "0x8366a39CC670B4001A1121B8F6A443A643e40951" as Address,
   imd: env(process.env.NEXT_PUBLIC_IMD_ADDRESS) ?? ("0x5f7bb59365ce557c26dbcaa4ee9d39a4b95b7127" as Address),
   intake: "0xa43e6f75ee006411f79ac1c84120606c2330de82" as Address,
   oracleSigner: "0x5598aa9146215bc13eb26f2c692ad1461fd32982" as Address,
@@ -37,12 +40,13 @@ export const LINKS = {
 
 /** Mirrors the contract's constants. */
 export const RULES = {
-  feeBps: 300,
-  burnBps: 200,
-  builderBps: 100,
+  /** Every trade with the maker: half to the market's creator, 67/200 burned, the rest to the builder. */
+  feeBps: 200,
   minStake: 0.001,
   oraclePrice: 0.5,
-  creationDeposit: 1,
+  oracleDeposit: 1,
+  minB: 0.5,
+  maxB: 100,
   panelSize: 5,
   quorum: 4,
   resolutionDays: 30,
@@ -50,4 +54,6 @@ export const RULES = {
   maxCondition: 280,
   maxOutcome: 280,
   maxRules: 500,
+  /** The slippage a stake or an exit accepts. */
+  slippage: 0.02,
 };

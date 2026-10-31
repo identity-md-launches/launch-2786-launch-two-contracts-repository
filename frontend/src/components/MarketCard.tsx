@@ -58,7 +58,7 @@ export function MarketCard({ m, now }: { m: MarketView; now: number }) {
             <p className="mt-1 text-sm">
               <span className={m.world === 0 ? "text-sun" : "text-moon"}>{m.world === 0 ? "It happened" : "It didn't"}</span>
               <span className="text-mute"> · </span>
-              {m.worldRefunded ? "refunded" : m.winningSide === 0 ? "YES won" : "NO won"}
+              {m.winningSide === 0 ? "YES won" : "NO won"}
             </p>
           </div>
         ) : (
@@ -70,7 +70,7 @@ export function MarketCard({ m, now }: { m: MarketView; now: number }) {
           </div>
         )}
         <div className="text-right">
-          <p className="eyebrow !text-[0.6rem]">Staked</p>
+          <p className="eyebrow !text-[0.6rem]">In market</p>
           <p className="num mt-1 text-sm text-ink-2">{fmtImd(totalStaked(m))} IMD</p>
         </div>
         <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-line text-ink-2 transition group-hover:border-ink/40 group-hover:bg-ink group-hover:text-bg">

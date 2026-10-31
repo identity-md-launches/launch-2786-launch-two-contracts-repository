@@ -3,7 +3,7 @@
 import { useMarkets } from "./Providers";
 import { StageChip } from "./MarketCard";
 import { fmtImd, fmtPct, fmtPts } from "@/lib/format";
-import { impact, totalStaked, worldPot, yesChance } from "@/lib/market";
+import { impact, totalStaked, yesChance } from "@/lib/market";
 import type { MarketView } from "@/lib/types";
 
 function WorldHalf({ m, w }: { m: MarketView; w: 0 | 1 }) {
@@ -36,15 +36,11 @@ function WorldHalf({ m, w }: { m: MarketView; w: 0 | 1 }) {
       <div className={`relative flex gap-6 text-sm ${sun ? "" : "sm:justify-end"}`}>
         <span>
           <span className="text-mute">YES </span>
-          <span className="num">{fmtImd(m.pools[w][0])}</span>
+          <span className="num">{fmtPct(p)}</span>
         </span>
         <span>
           <span className="text-mute">NO </span>
-          <span className="num">{fmtImd(m.pools[w][1])}</span>
-        </span>
-        <span>
-          <span className="text-mute">pot </span>
-          <span className="num">{fmtImd(worldPot(m, w))}</span>
+          <span className="num">{fmtPct(1 - p)}</span>
         </span>
       </div>
     </a>
@@ -89,7 +85,7 @@ export function Featured({ now }: { now: number }) {
         </div>
       </div>
       <p className="mt-4 text-sm text-mute">
-        {fmtImd(totalStaked(m))} IMD staked. Only one world will happen: stakes in the other are refunded in full.
+        {fmtImd(totalStaked(m))} IMD in this market. Only one world will happen: stakes in the other are refunded.
       </p>
     </section>
   );
