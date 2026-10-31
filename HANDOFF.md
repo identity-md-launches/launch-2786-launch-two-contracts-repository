@@ -15,7 +15,8 @@ haileymarshall). Push with `gh auth token --user UgwujaGeorge`; do not switch th
 - After it deploys: merge the delivered commit, point the frontend at the addresses, remove the "Coming with v2" chip
   once a live ETH and USDG stake works, then create the 4 markets with b = 1.44 IMD (seed ~2 IMD, plus 1 IMD oracle each):
   1. If the Fed raises rates at its Dec 9 decision, will BTC close above $80,000 on Dec 31? (close before Dec 9)
-  2. If the US strikes Iran by Dec 31, will Brent close above $X on Dec 31?
+  2. If the US carries out new strikes on Iran between market creation and Dec 31, will the ICE Brent front-month settle above
+     $115 on Dec 31? ($115 from the $113.43 January settle on Oct 30; recheck on creation day. "New", because an Iran war is already under way.)
   3. If the Senate holds another Clarity Act vote by Dec 31, will ETH close above $2,500 on Dec 31?
   4. If BTC closes above $85,000 on Dec 31, will IMD close above $5 on Dec 31?
 - Promo film done at `C:\Users\Administrator\Videos\Conditionals\conditionals-film.mp4` (60 s, 1080p, 30 fps, original music from
