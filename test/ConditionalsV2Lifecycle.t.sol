@@ -26,12 +26,19 @@ contract LifecycleHandler is Test {
     mapping(uint256 => uint8) public seenStatus;
     mapping(uint256 => mapping(address => uint256)) public paid;
     mapping(uint256 => uint256) public voidPaid;
+    /// @dev The refund pool a void set aside, and what a sweep later took from it.
+    mapping(uint256 => uint256) public poolAtVoid;
+    mapping(uint256 => uint256) public swept;
+    mapping(uint256 => bool) public isSwept;
     bool public overpaid;
     bool public reopened;
     bool public settleClaimWrong;
+    bool public sweepWrong;
+    bool public claimAfterSweep;
     uint256 public settles;
     uint256 public voids;
     uint256 public claims;
+    uint256 public sweeps;
 
     constructor(
         ConditionalsV2 c_,
@@ -123,6 +130,15 @@ contract LifecycleHandler is Test {
         vm.warp(now_);
     }
 
+    /// @dev A year after a void (`voidAfter` records the void's time from then on), when a short void can be swept.
+    function jumpPastSweep(uint256 sel) external {
+        ConditionalsV2.Market memory m = c.getMarket(_id(sel));
+        if (m.status != ConditionalsV2.Status.Voided) return;
+        uint256 v = uint256(m.voidAfter) + 365 days;
+        if (now_ < v) now_ = v;
+        vm.warp(now_);
+    }
+
     // ---- the oracle ------------------------------------------------------------------------------------------------
 
     /// @dev Asks what the market still needs and answers some of it: `mode` 0 both, 1 the condition only, 2 a
@@ -189,7 +205,35 @@ contract LifecycleHandler is Test {
         uint256 id = _id(sel);
         try c.voidMarket(id) {
             ++voids;
+            poolAtVoid[id] = c.getMarket(id).refundPool;
         } catch {}
+        _track(id);
+    }
+
+    /// @dev Sweeps a short void's leftover to the creator. A sweep that succeeds must be the first for the market, on
+    ///      a short void at least a year old, pay the creator exactly what the capped refunds left and close the pool.
+    function sweep(uint256 sel) external {
+        uint256 id = _id(sel);
+        ConditionalsV2.Market memory before = c.getMarket(id);
+        uint256 creatorHad = imd.balanceOf(creator) + c.owed(creator);
+        try c.sweepVoid(id) {
+            ++sweeps;
+            uint256 amount = before.refundPool - before.refundPaid;
+            if (
+                isSwept[id] || before.status != ConditionalsV2.Status.Voided || before.refundPool >= before.refundBase
+                    || before.refundPool <= before.refundPaid || now_ < uint256(before.voidAfter) + 365 days
+                    || imd.balanceOf(creator) + c.owed(creator) - creatorHad != amount
+                    || c.getMarket(id).refundPool != 0
+            ) sweepWrong = true;
+            isSwept[id] = true;
+            swept[id] = amount;
+        } catch {
+            // A sweep that should have gone through must not be refused.
+            if (
+                !isSwept[id] && before.status == ConditionalsV2.Status.Voided && before.refundPool < before.refundBase
+                    && before.refundPool > before.refundPaid && now_ >= uint256(before.voidAfter) + 365 days
+            ) sweepWrong = true;
+        }
         _track(id);
     }
 
@@ -207,6 +251,8 @@ contract LifecycleHandler is Test {
                 // A void refunds at most what the shares the account still holds cost it, fees excluded.
                 voidPaid[id] += amount;
                 if (net < 0 || amount > uint256(net)) overpaid = true;
+                // Refunds unclaimed at the sweep have lapsed.
+                if (isSwept[id] && amount != 0) claimAfterSweep = true;
             } else if (amount != c.sharesOf(id, a)[m.winner]) {
                 settleClaimWrong = true;
             }
@@ -345,8 +391,21 @@ contract ConditionalsV2LifecycleInvariantTest is Test {
                 total += uint256(net);
             }
             assertEq(total, m.refundBase);
-            assertLe(h.voidPaid(ids[k]), m.refundPool);
+            if (h.isSwept(ids[k])) {
+                // The refunds paid before the sweep and the sweep itself add up to at most the pool the void set aside.
+                assertEq(m.refundPool, 0);
+                assertLe(h.voidPaid(ids[k]) + h.swept(ids[k]), h.poolAtVoid(ids[k]));
+            } else {
+                assertLe(h.voidPaid(ids[k]), m.refundPool);
+            }
         }
+    }
+
+    /// @dev `sweepVoid` pays the creator exactly a short void's leftover, once, a year after the void and never for a
+    ///      void that was not short; no refund is paid after the sweep. A sweep the rules allow is never refused.
+    function invariant_sweepIsExact() public view {
+        assertFalse(h.sweepWrong());
+        assertFalse(h.claimAfterSweep());
     }
 
     /// @dev The handler's own paths reach every ending, so the invariants above are not checked only on open markets.
@@ -368,12 +427,54 @@ contract ConditionalsV2LifecycleInvariantTest is Test {
         h.claim(1, 2);
         assertGt(h.paid(ids[1], h.actors(2)), 6.5 ether, "the void refunded the stake less fees");
         assertEq(h.claims(), 2);
+        // One staker's void is not short, so it has nothing to sweep and its refunds never lapse.
+        h.jumpPastSweep(1);
+        h.sweep(1);
+        assertEq(h.sweeps(), 0);
+        assertFalse(h.sweepWrong());
         h.withdraw(true);
         h.withdraw(false);
         invariant_holdsEverythingItOwes();
         invariant_claimsAreExact();
         invariant_creatorLossBounded();
+        invariant_sweepIsExact();
         assertEq(c.owed(creator), 0);
+    }
+
+    /// @dev The handler can sweep a short void: cost pumped on several outcomes exceeds what the market holds, the
+    ///      capped refunds leave part of the pool, and a year later the sweep pays it to the creator and closes claims.
+    function test_handlerSweepsAShortVoid() public {
+        // The unit suite's `_shortVoid` scenario (b = 20), in the handler's 150 IMD steps: one leg pumped on two
+        // outcomes at once, of which only one could ever pay, then part of it sold at the top.
+        h.stake(1, 0, 1, 0, 100 ether);
+        h.buy(1, 1, 3, 150 ether);
+        h.buy(1, 1, 3, 49.999 ether);
+        h.buy(1, 2, 0, 150 ether);
+        h.buy(1, 2, 0, 49.999 ether);
+        h.buy(1, 2, 2, 150 ether);
+        h.buy(1, 2, 2, 49.999 ether);
+        h.buy(1, 2, 0, 150 ether);
+        h.buy(1, 2, 0, 49.999 ether);
+        h.sell(1, 2, 0, 192.5 ether);
+        h.jumpPastVoid(1);
+        h.voidIt(1);
+        ConditionalsV2.Market memory m = c.getMarket(ids[1]);
+        assertEq(uint8(m.status), uint8(ConditionalsV2.Status.Voided));
+        assertLt(m.refundPool, m.refundBase, "the void is short");
+        h.claim(1, 1);
+        h.claim(1, 2);
+        h.sweep(1); // too early
+        assertEq(h.sweeps(), 0);
+        h.jumpPastSweep(1);
+        h.sweep(1);
+        assertEq(h.sweeps(), 1);
+        assertGt(h.swept(ids[1]), 0, "the leftover went to the creator");
+        h.claim(1, 0); // the staker never claimed: its refund has lapsed
+        h.sweep(1); // and a second sweep is refused
+        assertEq(h.sweeps(), 1);
+        invariant_sweepIsExact();
+        invariant_refundBooksAgree();
+        invariant_holdsEverythingItOwes();
     }
 
     function afterInvariant() external view {

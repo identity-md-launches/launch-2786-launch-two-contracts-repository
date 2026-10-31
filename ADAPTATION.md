@@ -20,9 +20,12 @@ Launch kind `evm_contracts`, chain 4663, two contracts in this order:
 - No token, mint, pause, freeze, blacklist, proxy, initializer, DELEGATECALL, CALLCODE or SELFDESTRUCT. Every
   `transferFrom` is from `msg.sender`. No `abi.encodePacked`, and no Yul. Every library call is internal, so the
   bytecode needs no linking. `bytecode_hash = "none"` was already set.
-- Rehearsed: both contracts deployed by CREATE2 in one test on an empty chain (chain id 4663) with the brief's
-  arguments. The runtimes are 24,433 bytes (ConditionalsV2) and 3,646 bytes (ConditionalsZap), both under 24,576,
-  and no forbidden opcode is reachable.
+- Rehearsed: `test/ConditionalsV2Launch.t.sol` deploys both contracts by CREATE2 from a factory stand-in in one call
+  on an empty chain (chain id 4663, no code at the IMD, Intake, PoolManager or USDG addresses) with the brief's
+  arguments and the zap pointing at the ConditionalsV2 deployed just before it. It checks every constructor value,
+  that the owner is `$owner` and not the factory, the callback selectors, that the zap has no owner, that a zero
+  address is refused, and scans both runtimes as the launch floor does. The runtimes are 24,269 bytes (ConditionalsV2)
+  and 3,646 bytes (ConditionalsZap), both under 24,576, and no DELEGATECALL, CALLCODE or SELFDESTRUCT is reachable.
 
 No launch.json is written here: the manifest step owns it. `foundry.toml`, remappings, `lib/` and lockfiles are
 untouched.
@@ -271,10 +274,7 @@ Redistributing it would need the sum of the clipped values over every account, w
 without a list of accounts, and the runtime has 21 bytes left. The creator is still paid last (`balance - pool`,
 zero when short), so this is IMD no account had a claim to under the brief's rule rather than a loss to anyone.
 
-After launch 2765 parked on that leftover (`5a89dee7`), `sweepVoid` pays it to the creator from a year after the void,
-and refunds still unclaimed at the sweep lapse. Late claims work until somebody sweeps. A void that was not short has
-no leftover and its refunds never lapse. The `conditionals` view went to make room; the site derives the same numbers
-from `getMarket`.
+Launch 2765 then parked on that leftover (`5a89dee7`, medium); the fix is the next section.
 
 - `src/ConditionalsV2.sol`: `_payout` (one line and its comment).
 - `test/ConditionalsV2.t.sol`: `test_review_shortVoidNeverPaysAboveCost` (the proof's scenario: every refund at
@@ -284,18 +284,81 @@ from `getMarket`.
   pass unchanged.
 - `README.md`: "Void refunds".
 
+## Launch 2765: the parked finding, fixed before the relaunch
+
+Launch 2765 (job `81264d12`) accepted the three revisions above and then parked with one medium finding open. The
+requester fixed it on the project's `v2` branch (commit `be62e2a`) before ordering this relaunch; the fix arrived with
+this tree and is recorded here because it is the only behaviour change since the audited revisions.
+
+### 5a89dee7 (medium): a short void's capped refunds stranded part of the pool. Reproduced and fixed
+
+After 0b859a73 every short-void refund is capped at the account's cost, so the refunds can add up to less than the
+pool, and the difference stayed in the contract with no function able to move it. Reproduced by the suite's
+`_shortVoid` scenario (`test_sweep_paysTheCreatorWhatTheCappedRefundsLeave` asserts the leftover is over 1 IMD).
+
+`sweepVoid(marketId)` pays that leftover to the creator, who is paid last in every void, from `SWEEP_DELAY`
+(365 days) after the void. It needs a voided market whose `refundPool` is below `refundBase` (short) and above
+`refundPaid` (something left), sets `refundPool` to zero and pushes `refundPool - refundPaid` with `_push`, so a
+creator IMD blocks is credited in `owed`. Refunds still unclaimed at the sweep lapse: `_payout` then pays
+`v * 0 / total = 0`, and `claim` returns 0 without marking the account. Late claims work until somebody sweeps. A void
+that was not short has `refundPool == refundBase`, nothing left over, and `sweepVoid` refuses it, so its refunds
+never lapse. To support it, `voidMarket` now records the void's time in `voidAfter` (nothing reads it as a deadline
+once the market is voided) and `claim` counts a void's payouts in the new `Market.refundPaid`.
+
+- `src/ConditionalsV2.sol`: `sweepVoid`, `SWEEP_DELAY`, `Market.refundPaid`, `VoidSwept`, `voidMarket` (records the
+  time), `claim` (counts `refundPaid`).
+- `test/ConditionalsV2.t.sol`: `test_sweep_paysTheCreatorWhatTheCappedRefundsLeave` (too early reverts, the creator is
+  paid exactly the leftover, the contract then holds only `owed`, a second sweep reverts),
+  `test_sweep_unclaimedRefundsLapse` (a late claim before the sweep is paid in full, a claim after it gets 0),
+  `test_sweep_onlyAfterAShortVoid` (an open market and a void that was not short refuse it, and that void's refund
+  never lapses), `test_sweep_blockedCreatorIsOwed`.
+- `test/ConditionalsV2Lifecycle.t.sol` (this task): the handler can now `sweep` and `jumpPastSweep`, with ghosts for
+  the pool a void set aside, what a sweep took and whether it happened. `invariant_sweepIsExact`: a sweep that
+  succeeds is the first for its market, on a short void at least a year old, pays the creator exactly
+  `refundPool - refundPaid` and zeroes the pool; one the rules allow is never refused; nothing is refunded after it.
+  `invariant_refundBooksAgree` now also checks that the refunds paid before a sweep and the sweep add up to at most
+  the pool the void set aside. `test_handlerSweepsAShortVoid` drives the handler through a short void, a too-early
+  sweep, the sweep, a lapsed claim and a refused second sweep, so the invariant is exercised on a swept market.
+
+### Size trims that made room, behaviour unchanged
+
+`sweepVoid` needed about 300 bytes against a limit the previous revision had 21 bytes under. The requester removed
+the `conditionals(marketId)` view (the site derives both conditional probabilities from `getMarket`'s `q` and `b`,
+and `prices(marketId)` still returns the four prices), the `totalCreatorFees` counter (creator fees are in `owed`),
+and the public getters of `pendingOracleConfig` (the `OracleConfigProposed` event carries the proposal, and
+`pendingOracleConfigAt` stays public) and of seven constants (`BURN_ADDRESS`, `FEE_BPS`, `MIN_TRADE`, `MIN_B`,
+`MAX_B`, `RESOLUTION_PERIOD`, `RETRY_DELAY`; their values are in this file and the README). No trade, fee, oracle
+or payout path changed. `test/ConditionalsV2Invariant.t.sol`'s `invariant_spreadBounded` calls `prices` instead of
+`conditionals`. The frontend ABI was regenerated.
+
+## This relaunch: the audit of the code as it arrived
+
+The audit step of this launch (`6f01e635`, info) read both contracts, the interfaces, the mocks and the tests in
+full, traced every state-changing function for caller, value moved and trust, and ran a 512-run fuzz for
+`makerBalance >= C(q)` and a short-void scenario with `sweepVoid`. It found no reproducible defect and reported the
+deliberate designs (the caller pays an ask's shortfall above the budget, `createMarket` binds only the price, the
+spread bound leaves `exit` dust, `sweepVoid` lapses unclaimed refunds of a short void after a year, `a.chainId` is
+not checked and `a.requestId` is not consumed) as implemented and documented, not as defects. Nothing to fix. This
+task therefore changes no source: it adds the launch rehearsal test described under "Launch rules", the lifecycle
+invariant coverage of `sweepVoid` described above, and this record.
+
 ## Size
 
-ConditionalsV2's runtime is 24,555 bytes (limit 24,576), with `optimizer_runs = 1` as configured. It was 24,148 as
-it arrived, 24,433 after the audit fixes, 24,490 after the first revision and 24,541 after the second.
+ConditionalsV2's runtime is 24,269 bytes (limit 24,576), with `optimizer_runs = 1` as configured. It was 24,148 as
+it arrived at launch 2765, 24,433 after the audit fixes, 24,490 after the first revision, 24,541 after the second,
+24,555 after the third, and 24,269 after `sweepVoid` and the trims above. ConditionalsZap is 3,646 bytes.
 
 ## Checks run
 
-- `FOUNDRY_FUZZ_SEED=0x5d83227fee2096f4e9e1dfcdf39851d7320e2b9f2ba8471b17718ec60e88cbc5 forge test`: 74 tests pass.
-  That is 55 unit and fuzz tests, 1 invariant suite, 6 question and live-API hash vector tests, 4 oracle
-  conformance tests, and the launch rehearsal. The 5 fork tests return without an RPC.
-- The third review's proof `Proof_0b859a733266.t.sol` passes on this tree (Carol and Dave are refunded exactly their
-  net in).
+- `forge build`: clean, sizes as above.
+- `FOUNDRY_FUZZ_SEED=0x1603cce38c873662a78756267580099c44a77c9c5fe92d6a89347de0a67f480e forge test`, in an empty
+  environment: 130 tests pass, 1 skipped (the fork suite, which needs `ROBINHOOD_RPC_URL`). That is the unit and fuzz
+  suites (`ConditionalsV2`, `ConditionalsV2FailurePaths`, `ConditionalsZap`), the two invariant suites, the question
+  and live-API hash vectors, the oracle conformance vectors, and the launch rehearsal.
+- The fork tests were not run here (no RPC); the requester's last run against Robinhood Chain is recorded in
+  `HANDOFF.md`.
+- The third review's proof `Proof_0b859a733266.t.sol` passed on the tree that fixed it (Carol and Dave are refunded
+  exactly their net in); it is not supplied on this machine.
 - The second review's proofs `Proof_e665f90a9e1f.t.sol` and `Proof_bf61cff9dc2b.t.sol` are no longer supplied on
   this machine. Their scenarios are the suite's `test_review_buyAboveInt256MaxReverts` and
   `test_review_voidShortfallFallsOnUnbackedCost`, which pass unchanged.

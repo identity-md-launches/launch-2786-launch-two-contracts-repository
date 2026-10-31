@@ -42,7 +42,10 @@ to the outcome: "if the Clarity Act passes, ETH above $5k is 62%; if it doesn't,
 6. **Void.** With no usable answer 30 days after `resolveTime`, anyone can call `voidMarket`: every position is
    refunded at what it cost. In ConditionalsV2 each account gets back what it paid, fees excluded, for the shares it
    still holds (`netIn`), pro rata if the market is short, and the creator is paid last. Gains and losses already
-   realised by selling or redeeming shares are not refunded (see "Void refunds" below).
+   realised by selling or redeeming shares are not refunded (see "Void refunds" below). In a short void the capped
+   refunds can add up to less than the pool: from 365 days after the void anyone can call `sweepVoid`, which pays
+   the creator what is left, and refunds still unclaimed then lapse. A void that was not short has nothing to sweep
+   and its refunds never lapse.
    A void waits while an unanswered question has an ask less than a day old still live, so an answer on its way
    cannot be voided away; `voidable(marketId)` says whether it would succeed now.
 
@@ -82,7 +85,8 @@ to the outcome: "if the Clarity Act passes, ETH above $5k is 62%; if it doesn't,
   cost, such as a stake's complete sets, is refunded in full, and cost paid at prices pumped on several outcomes at
   once, of which only one can pay, takes the loss. No account is ever refunded more than its cost, so a position
   worth more than it cost at the final prices is refunded at cost, never at a profit taken from other accounts;
-  the few IMD this can leave unclaimed in a short void stay in the contract. What a sale fetched is the seller's, gain or loss: a loss one
+  what this leaves unclaimed in a short void goes to the creator through `sweepVoid` a year after the void, when
+  any refund not yet claimed lapses (`claim` then returns 0). What a sale fetched is the seller's, gain or loss: a loss one
   account realised against the maker is IMD another account took out, so it is not a claim on the seed or on other
   accounts' refunds. `claim` returns 0 for an account with nothing to claim.
 - **Spread bound (ConditionalsV2).** No trade, sells included, may leave an outcome more than 20 b below the top
@@ -132,6 +136,12 @@ FORK_ROBINHOOD=1 forge test --mc Fork       # the real Robinhood Chain Intake ta
 - `test/ConditionalsInvariant.t.sol`: random markets, stakes, asks, answers, failures, settlements, voids and claims;
   the contract stays solvent, conserves every IMD, and fees never exceed 3%.
 - `test/ConditionalsFork.t.sol`: against Robinhood Chain, the real Intake accepts both asks and forwards 1 IMD.
+- `test/ConditionalsV2Lifecycle.t.sol`: two markets driven through trades, asks, answers, failures, settlement,
+  void, claims, fee withdrawals and `sweepVoid`; the contract holds everything it owes, claims are exact, a sweep
+  pays exactly a short void's leftover once and only after a year, and no refund is paid after it.
+- `test/ConditionalsV2Launch.t.sol`: the `evm_contracts` launch rehearsed with no RPC: both contracts deployed by
+  CREATE2 from a factory stand-in on an empty chain 4663 with the launch's constructor arguments, every value
+  checked, the owner not the factory, both runtimes under 24,576 bytes with no forbidden opcode reachable.
 
 ## Frontend
 
