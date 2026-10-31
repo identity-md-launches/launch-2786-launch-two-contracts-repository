@@ -39,7 +39,10 @@ to the outcome: "if the Clarity Act passes, ETH above $5k is 62%; if it doesn't,
    - The burn, the fee and the creator's unspent budget are pushed in the same transaction. If IMD refuses one of
      those transfers (its owner can block an address), the amount is credited to `owed` and that party collects it
      with `withdrawOwed()`; the stakers' settlement, void and claims go through regardless.
-6. **Void.** With no usable answer 30 days after `resolveTime`, anyone can call `voidMarket`: every stake is refunded.
+6. **Void.** With no usable answer 30 days after `resolveTime`, anyone can call `voidMarket`: every position is
+   refunded at what it cost. In ConditionalsV2 each account gets back what it paid, fees excluded, for the shares it
+   still holds (`netIn`), pro rata if the market is short, and the creator is paid last. Gains and losses already
+   realised by selling or redeeming shares are not refunded (see "Void refunds" below).
    A void waits while an unanswered question has an ask less than a day old still live, so an answer on its way
    cannot be voided away; `voidable(marketId)` says whether it would succeed now.
 
@@ -64,10 +67,27 @@ to the outcome: "if the Clarity Act passes, ETH above $5k is 62%; if it doesn't,
   exactly an address or a 32-byte hex string. Lengths: condition and outcome up to 280 bytes, rules up to 500.
 - **Questions are public** and reach the oracle's agents as written. The oracle refuses ambiguous or unanswerable
   questions; such a market ends in a void.
-- **Price changes.** Each market pays at most the Intake price it was created with: an ask reads the Intake's live
-  price (`priceOf`) and pays it when it is lower, so a price cut is not overpaid from the creator's budget. If the
-  Intake raises its price, that market's asks revert and it is voided after 30 days; the caller of
-  `requestResolution` never pays more than the snapshot price.
+- **Price changes.** An ask reads the Intake's live price (`priceOf`) and pays it, up to `MAX_PRICE` (10 IMD), so a
+  price cut is not overpaid from the creator's budget. In ConditionalsV2 a price rise no longer strands a market: the
+  budget is drawn down to zero and the caller of `requestResolution` pays only the shortfall. A retry is paid the
+  same way, from the budget while it lasts. A live price of zero, above 10 IMD, or unreadable falls back to the
+  market's snapshot price.
+- **Void refunds (ConditionalsV2).** The contract keeps, per account and outcome, what the shares still held cost: a
+  buy adds its cost, a stake adds its collateral spread over the three outcomes it keeps by their prices, and a sell
+  or an exit releases the sold shares' share of it. A void refunds that sum (`netIn`) in full when the market can
+  cover it, and the creator takes what is left. When it is short, the shortfall is shared pro rata over the cost that
+  a position's value at the final prices does not back: an account with cost c and value v (shares times final
+  prices, clipped at c) is paid `(v * shortfall + c * (pool - V)) / (refundBase - V)`, where V is the value of every
+  position. The market always holds at least V (`makerBalance >= C(q) >= sum p_i q_i`), so a position worth its
+  cost, such as a stake's complete sets, is refunded in full, and cost paid at prices pumped on several outcomes at
+  once, of which only one can pay, takes the loss. No account is ever refunded more than its cost, so a position
+  worth more than it cost at the final prices is refunded at cost, never at a profit taken from other accounts;
+  the few IMD this can leave unclaimed in a short void stay in the contract. What a sale fetched is the seller's, gain or loss: a loss one
+  account realised against the maker is IMD another account took out, so it is not a claim on the seed or on other
+  accounts' refunds. `claim` returns 0 for an account with nothing to claim.
+- **Spread bound (ConditionalsV2).** No trade, sells included, may leave an outcome more than 20 b below the top
+  outcome, so every outcome keeps a price. `exit` sells only what fits; any shares it cannot sell stay with the
+  account (each is priced under about 2e-9 IMD) and a later `exit` or `sell` can sell them once the market moves.
 - **Close before it is known.** Staking is open until `closeTime`, which the creator chooses (at or before
   `resolveTime`). A market whose condition or outcome becomes public before `closeTime` can be staked on with that
   knowledge, as in any prediction market; creators should close trading before either can be known. The frontend
