@@ -34,97 +34,6 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "BURN_ADDRESS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "address",
-        "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "FEE_BPS",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MAX_B",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MIN_B",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "MIN_TRADE",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "RESOLUTION_PERIOD",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "RETRY_DELAY",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "WINDOW_DEPTH",
     "inputs": [],
     "outputs": [
@@ -412,30 +321,6 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
-    "name": "conditionals",
-    "inputs": [
-      {
-        "name": "marketId",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "outputs": [
-      {
-        "name": "yesIfCondition",
-        "type": "uint256",
-        "internalType": "uint256"
-      },
-      {
-        "name": "yesIfNot",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
     "name": "createMarket",
     "inputs": [
       {
@@ -702,6 +587,11 @@ export const conditionalsAbi = [
             "internalType": "uint256"
           },
           {
+            "name": "refundPaid",
+            "type": "uint256",
+            "internalType": "uint256"
+          },
+          {
             "name": "condition",
             "type": "string",
             "internalType": "string"
@@ -752,12 +642,12 @@ export const conditionalsAbi = [
     "name": "netIn",
     "inputs": [
       {
-        "name": "",
+        "name": "marketId",
         "type": "uint256",
         "internalType": "uint256"
       },
       {
-        "name": "",
+        "name": "account",
         "type": "address",
         "internalType": "address"
       }
@@ -975,44 +865,6 @@ export const conditionalsAbi = [
         "name": "",
         "type": "address",
         "internalType": "address"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "pendingOracleConfig",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "intake",
-        "type": "address",
-        "internalType": "contract IIntake"
-      },
-      {
-        "name": "signer",
-        "type": "address",
-        "internalType": "address"
-      },
-      {
-        "name": "price",
-        "type": "uint128",
-        "internalType": "uint128"
-      },
-      {
-        "name": "panelSize",
-        "type": "uint16",
-        "internalType": "uint16"
-      },
-      {
-        "name": "quorum",
-        "type": "uint16",
-        "internalType": "uint16"
-      },
-      {
-        "name": "action",
-        "type": "bytes32",
-        "internalType": "bytes32"
       }
     ],
     "stateMutability": "view"
@@ -1408,6 +1260,19 @@ export const conditionalsAbi = [
   },
   {
     "type": "function",
+    "name": "sweepVoid",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "internalType": "uint256"
+      }
+    ],
+    "outputs": [],
+    "stateMutability": "nonpayable"
+  },
+  {
+    "type": "function",
     "name": "totalBuilderFees",
     "inputs": [],
     "outputs": [
@@ -1422,19 +1287,6 @@ export const conditionalsAbi = [
   {
     "type": "function",
     "name": "totalBurned",
-    "inputs": [],
-    "outputs": [
-      {
-        "name": "",
-        "type": "uint256",
-        "internalType": "uint256"
-      }
-    ],
-    "stateMutability": "view"
-  },
-  {
-    "type": "function",
-    "name": "totalCreatorFees",
     "inputs": [],
     "outputs": [
       {
@@ -1997,6 +1849,25 @@ export const conditionalsAbi = [
       },
       {
         "name": "fee",
+        "type": "uint256",
+        "indexed": false,
+        "internalType": "uint256"
+      }
+    ],
+    "anonymous": false
+  },
+  {
+    "type": "event",
+    "name": "VoidSwept",
+    "inputs": [
+      {
+        "name": "marketId",
+        "type": "uint256",
+        "indexed": true,
+        "internalType": "uint256"
+      },
+      {
+        "name": "amount",
         "type": "uint256",
         "indexed": false,
         "internalType": "uint256"
